@@ -1,11 +1,13 @@
 from django.db import transaction
-from rest_framework import status, viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from apps.users.permissions import CanEditArticle, IsAuthorOrEditorRole, IsAuthorRole
 
+from .filters import ArticleFilter
 from .models import Article, ArticleVersion, Category, InlineImage
 from .serializers import (
     ArticleDetailSerializer,
@@ -25,6 +27,11 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 class ArticleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ArticleFilter
+    search_fields = ['title', 'body', 'author__username']
+    ordering_fields = ['created_at', 'updated_at', 'title']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         user = self.request.user
