@@ -15,6 +15,8 @@ venv/
 .venv/
 env/
 .env/
+Pipfile
+Pipfile.lock
 
 # Environment secrets
 .env
