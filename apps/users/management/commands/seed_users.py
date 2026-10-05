@@ -1,6 +1,9 @@
 from django.core.management.base import BaseCommand
 
+from apps.articles.models import Category
 from apps.users.models import Role, User
+
+SEED_CATEGORIES = ['Tech', 'Sports', 'Culture', 'Politics', 'Science']
 
 SEED_USERS = [
     {
@@ -38,6 +41,14 @@ class Command(BaseCommand):
         # Ensure all roles exist
         for role_name in [Role.AUTHOR, Role.EDITOR, Role.ADMIN]:
             Role.objects.get_or_create(name=role_name)
+
+        # Seed categories
+        for name in SEED_CATEGORIES:
+            cat, created = Category.objects.get_or_create(name=name)
+            if created:
+                self.stdout.write(self.style.SUCCESS(f"Created category '{name}'"))
+            else:
+                self.stdout.write(f"Category '{name}' already exists — skipped.")
 
         if options['reset']:
             usernames = [u['username'] for u in SEED_USERS]
