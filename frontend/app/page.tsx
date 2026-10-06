@@ -23,13 +23,13 @@ export default function Home() {
 
       <div className="flex gap-3 mb-6">
         <input
-          className="border rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-black"
+          className="border rounded px-3 py-2 text-sm flex-1 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
           placeholder="Search…"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
         <select
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+          className="border rounded px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
           value={category}
           onChange={e => setCategory(e.target.value)}
         >

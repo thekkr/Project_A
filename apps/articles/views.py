@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
-from apps.users.permissions import CanEditArticle, IsAuthorOrEditorRole, IsAuthorRole
+from apps.users.permissions import CanEditArticle, CanUpdateArticle, IsAuthorOrEditorRole, IsAuthorRole
 
 from .filters import ArticleFilter
 from .models import Article, ArticleVersion, Category, InlineImage
@@ -35,16 +35,17 @@ class ArticleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        qs = Article.objects.select_related(
+            'author', 'category', 'review_assignment__reviewer'
+        )
         if not user.is_authenticated:
-            return Article.objects.filter(status=Article.PUBLISHED)
+            return qs.filter(status=Article.PUBLISHED)
         if user.is_editor or user.is_staff:
-            return Article.objects.all()
+            return qs.all()
         if user.is_author:
             from django.db.models import Q
-            return Article.objects.filter(
-                Q(author=user) | Q(status=Article.PUBLISHED)
-            )
-        return Article.objects.filter(status=Article.PUBLISHED)
+            return qs.filter(Q(author=user) | Q(status=Article.PUBLISHED))
+        return qs.filter(status=Article.PUBLISHED)
 
     def get_serializer_class(self):
         if self.action in ('create', 'update', 'partial_update'):
@@ -56,9 +57,11 @@ class ArticleViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'create':
             return [IsAuthenticated(), IsAuthorRole()]
-        if self.action in ('update', 'partial_update', 'destroy'):
+        if self.action in ('update', 'partial_update'):
+            return [IsAuthenticated(), CanUpdateArticle()]
+        if self.action == 'destroy':
             return [IsAuthenticated(), CanEditArticle()]
-        if self.action == 'submit':
+        if self.action in ('submit', 'save_and_submit'):
             return [IsAuthenticated(), CanEditArticle()]
         if self.action == 'versions':
             return [IsAuthenticated()]
@@ -91,6 +94,21 @@ class ArticleViewSet(viewsets.ModelViewSet):
             )
         article.status = Article.IN_REVIEW
         article.save(update_fields=['status', 'updated_at'])
+        return Response(ArticleDetailSerializer(article).data)
+
+    @action(detail=True, methods=['post'], url_path='save-and-submit')
+    def save_and_submit(self, request, pk=None):
+        """Atomically update body/title then submit for review."""
+        article = self.get_object()
+        if not article.can_edit(request.user):
+            return Response({'detail': 'Cannot edit this article.'}, status=status.HTTP_403_FORBIDDEN)
+        serializer = ArticleWriteSerializer(article, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            serializer.save()
+            article.refresh_from_db()
+            article.status = Article.IN_REVIEW
+            article.save(update_fields=['status', 'updated_at'])
         return Response(ArticleDetailSerializer(article).data)
 
     @action(detail=True, methods=['get'])

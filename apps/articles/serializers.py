@@ -43,17 +43,23 @@ class ArticleVersionSerializer(serializers.ModelSerializer):
 class ArticleListSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
     category = CategorySerializer(read_only=True)
+    reviewer = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
-        fields = ('id', 'title', 'author', 'category', 'status', 'featured_image', 'created_at')
+        fields = ('id', 'title', 'author', 'category', 'status', 'featured_image', 'created_at', 'reviewer')
         read_only_fields = fields
+
+    def get_reviewer(self, obj):
+        try:
+            return str(obj.review_assignment.reviewer)
+        except Exception:
+            return None
 
 
 class ArticleDetailSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
     category = CategorySerializer(read_only=True)
-    review_history = serializers.SerializerMethodField()
     versions = ArticleVersionSerializer(many=True, read_only=True)
 
     class Meta:
@@ -62,13 +68,9 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'body', 'featured_image',
             'author', 'category', 'status',
             'created_at', 'updated_at',
-            'review_history', 'versions',
+            'versions',
         )
         read_only_fields = fields
-
-    def get_review_history(self, obj):
-        from apps.reviews.serializers import ReviewHistorySerializer
-        return ReviewHistorySerializer(obj.review_history.all(), many=True).data
 
 
 class ArticleWriteSerializer(serializers.ModelSerializer):
@@ -77,8 +79,18 @@ class ArticleWriteSerializer(serializers.ModelSerializer):
         fields = ('id', 'title', 'body', 'featured_image', 'category', 'status')
         read_only_fields = ('id', 'status')
 
+    def validate_title(self, value):
+        if len(value.strip()) < 3:
+            raise serializers.ValidationError('Title must be at least 3 characters.')
+        return value.strip()
+
     def validate_body(self, value):
-        return sanitize_html(value)
+        clean = sanitize_html(value)
+        import re
+        text_only = re.sub(r'<[^>]+>', '', clean).strip()
+        if len(text_only) < 10:
+            raise serializers.ValidationError('Body must contain at least 10 characters of text.')
+        return clean
 
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user

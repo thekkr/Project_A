@@ -34,6 +34,22 @@ class CanEditArticle(BasePermission):
         return obj.can_edit(request.user)
 
 
+class CanUpdateArticle(BasePermission):
+    """
+    Author editing own DRAFT/NEEDS_REVISION, OR
+    Editor editing IN_REVIEW article (for copyediting before publish).
+    """
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        if obj.can_edit(user):
+            return True
+        from apps.articles.models import Article
+        if user.is_editor and obj.status == Article.IN_REVIEW:
+            return True
+        return False
+
+
 class IsNotArticleAuthor(BasePermission):
     """Prevent self-review: requester must not be the article's author."""
 

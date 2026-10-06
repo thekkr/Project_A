@@ -10,7 +10,7 @@ from apps.articles.serializers import ArticleDetailSerializer
 from apps.users.permissions import IsEditorRole, IsNotArticleAuthor
 
 from .models import ReviewAssignment, ReviewHistory
-from .serializers import ReviewHistorySerializer
+from .serializers import ReviewHistorySerializer, ReviewHistoryWithArticleSerializer
 
 
 class ReviewDecisionSerializer(drf_serializers.Serializer):
@@ -118,6 +118,7 @@ class ReviewViewSet(viewsets.ViewSet):
             )
             article.status = Article.PUBLISHED
             article.save(update_fields=['status', 'updated_at'])
+            ReviewAssignment.objects.filter(article=article).delete()
 
         return Response(ArticleDetailSerializer(article).data)
 
@@ -165,6 +166,17 @@ class ReviewViewSet(viewsets.ViewSet):
             article.save(update_fields=['status', 'updated_at'])
 
         return Response(ArticleDetailSerializer(article).data)
+
+    @action(detail=False, methods=['get'], url_path='my-decisions')
+    def my_decisions(self, request):
+        """All review decisions made by the current editor, newest first."""
+        if not request.user.is_authenticated or not request.user.is_editor:
+            return Response({'detail': 'Editor role required.'}, status=status.HTTP_403_FORBIDDEN)
+        qs = (ReviewHistory.objects
+              .filter(editor=request.user)
+              .select_related('article', 'article__author')
+              .order_by('-created_at'))
+        return Response(ReviewHistoryWithArticleSerializer(qs, many=True).data)
 
     @action(detail=True, methods=['get'], url_path='history')
     def history(self, request, pk=None):

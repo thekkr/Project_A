@@ -12,9 +12,19 @@ class UserViewSet(viewsets.ViewSet):
     """
     Admin-only user management.
     Admins manage users and roles — zero article/review involvement.
+    `me` action is available to any authenticated user.
     """
 
     permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get_permissions(self):
+        if self.action == 'me':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminRole()]
+
+    @action(detail=False, methods=['get'], url_path='me')
+    def me(self, request):
+        return Response(UserDetailSerializer(request.user).data)
 
     def list(self, request):
         users = User.objects.prefetch_related('roles').order_by('username')

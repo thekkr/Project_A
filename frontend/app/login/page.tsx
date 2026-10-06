@@ -16,9 +16,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(username, password);
-      router.push('/');
-    } catch {
-      setError('Invalid username or password.');
+      const params = new URLSearchParams(window.location.search);
+      router.push(params.get('next') || '/');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || err.message || 'Login failed.');
     } finally {
       setLoading(false);
     }
@@ -32,7 +33,7 @@ export default function LoginPage() {
           <div>
             <label className="block text-sm font-medium mb-1">Username</label>
             <input
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full border rounded px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -42,7 +43,7 @@ export default function LoginPage() {
             <label className="block text-sm font-medium mb-1">Password</label>
             <input
               type="password"
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full border rounded px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
