@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { logout, isLoggedIn } from '@/lib/auth';
 import useSWR from 'swr';
 import api from '@/lib/api';
@@ -9,7 +10,8 @@ const fetcher = (url: string) => api.get(url).then(r => r.data);
 
 export default function Nav() {
   const router = useRouter();
-  const loggedIn = isLoggedIn();
+  const [loggedIn, setLoggedIn] = useState(false);
+  useEffect(() => { setLoggedIn(isLoggedIn()); }, []);
   const { data: me } = useSWR(loggedIn ? '/users/me/' : null, fetcher);
 
   function handleLogout() {

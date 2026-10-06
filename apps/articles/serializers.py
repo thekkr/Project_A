@@ -11,17 +11,29 @@ ALLOWED_TAGS = [
     'a', 'img',
 ]
 
-ALLOWED_ATTRIBUTES = {
-    'a': ['href', 'title', 'rel'],
-    'img': ['src', 'alt', 'width', 'height'],
-}
 
 ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
+import re as _re
+
+
+def _allow_img_attributes(tag, name, value):
+    if tag == 'img':
+        if name in ('src', 'alt', 'width', 'height', 'data-align'):
+            return True
+        if name == 'style':
+            # allow only width declarations
+            return bool(_re.fullmatch(r'width\s*:\s*[\d.]+(%|px|em|rem)\s*;?', value.strip()))
+        return False
+    if tag == 'a' and name in ('href', 'title', 'rel'):
+        return True
+    return False
+
+
 def sanitize_html(value: str) -> str:
-    return bleach.clean(value, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, strip=True)
+    return bleach.clean(value, tags=ALLOWED_TAGS, attributes=_allow_img_attributes, strip=True)
 
 
 class CategorySerializer(serializers.ModelSerializer):

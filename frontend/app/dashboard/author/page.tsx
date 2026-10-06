@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import api from '@/lib/api';
+import RichTextEditor from '@/components/RichTextEditor';
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
 
@@ -113,12 +114,10 @@ export default function AuthorDashboard() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <textarea
-            className="w-full border rounded px-3 py-2 text-sm h-32 text-gray-900 bg-white"
-            placeholder="Body (HTML supported)"
+          <RichTextEditor
             value={form.body}
-            onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-            required
+            onChange={body => setForm(f => ({ ...f, body }))}
+            placeholder="Write your article…"
           />
           <button
             type="submit"
@@ -210,11 +209,9 @@ export default function AuthorDashboard() {
                       onChange={e => setEditForm(f => ({ ...f, [a.id]: { ...f[a.id], title: e.target.value } }))}
                       placeholder="Title"
                     />
-                    <textarea
-                      className="w-full border rounded px-3 py-2 text-sm h-40 text-gray-900 bg-white"
+                    <RichTextEditor
                       value={editForm[a.id]?.body ?? ''}
-                      onChange={e => setEditForm(f => ({ ...f, [a.id]: { ...f[a.id], body: e.target.value } }))}
-                      placeholder="Body"
+                      onChange={body => setEditForm(f => ({ ...f, [a.id]: { ...f[a.id], body } }))}
                     />
                     <div className="flex gap-2">
                       <button

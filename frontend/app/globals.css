@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
@@ -23,4 +24,33 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* TipTap placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+/* TipTap image alignment */
+.tiptap img[data-align="left"] {
+  float: left;
+  margin: 0 1rem 0.5rem 0;
+}
+.tiptap img[data-align="right"] {
+  float: right;
+  margin: 0 0 0.5rem 1rem;
+}
+.tiptap img[data-align="center"] {
+  display: block;
+  margin: 0.5rem auto;
+  float: none;
+}
+/* Clearfix after floated images */
+.tiptap p:has(+ img[data-align="left"]),
+.tiptap p:has(+ img[data-align="right"]) {
+  clear: both;
 }
