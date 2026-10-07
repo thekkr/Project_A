@@ -87,10 +87,11 @@ class ArticleListSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
     category = CategorySerializer(read_only=True)
     reviewer = serializers.SerializerMethodField()
+    revision_round = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
-        fields = ('id', 'title', 'author', 'category', 'status', 'featured_image', 'created_at', 'reviewer')
+        fields = ('id', 'title', 'author', 'category', 'status', 'featured_image', 'created_at', 'reviewer', 'revision_round')
         read_only_fields = fields
 
     def get_reviewer(self, obj):
@@ -98,6 +99,9 @@ class ArticleListSerializer(serializers.ModelSerializer):
             return str(obj.review_assignment.reviewer)
         except Exception:
             return None
+
+    def get_revision_round(self, obj):
+        return obj.review_history.filter(decision='NEEDS_REVISION').count()
 
 
 class ArticleDetailSerializer(serializers.ModelSerializer):

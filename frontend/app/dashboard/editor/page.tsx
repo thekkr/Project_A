@@ -21,6 +21,7 @@ export default function EditorDashboard() {
   const [detail, setDetail] = useState<Record<number, any>>({});
   const [msg, setMsg] = useState('');
   const [preview, setPreview] = useState<any | null>(null);
+  const [publishConfirm, setPublishConfirm] = useState<{ id: number; title: string } | null>(null);
 
   async function loadDetail(id: number) {
     if (detail[id]) {
@@ -89,6 +90,37 @@ export default function EditorDashboard() {
   return (
     <div>
       {preview && <ArticlePreviewModal article={preview} onClose={() => setPreview(null)} />}
+
+      {/* Publish confirmation modal */}
+      {publishConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="font-semibold text-lg mb-2">Publish article?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              <span className="font-medium text-gray-900">"{publishConfirm.title}"</span> will be published and visible to the public. This cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setPublishConfirm(null)}
+                className="px-4 py-2 text-sm border rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const id = publishConfirm.id;
+                  setPublishConfirm(null);
+                  await publish(id);
+                }}
+                className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h1 className="text-2xl font-bold mb-6">Editor Dashboard</h1>
       {msg && (
         <p className="mb-4 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">
@@ -169,7 +201,7 @@ export default function EditorDashboard() {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => publish(a.id)}
+                      onClick={() => setPublishConfirm({ id: a.id, title: a.title })}
                       className="text-xs bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700"
                     >
                       Publish

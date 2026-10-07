@@ -170,6 +170,11 @@ export default function AuthorDashboard() {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[a.status]}`}>{a.status}</span>
+                {a.status === 'NEEDS_REVISION' && a.revision_round > 0 && (
+                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-medium">
+                    Round {a.revision_round}
+                  </span>
+                )}
                 <button
                   onClick={() => openPreview(a)}
                   className="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700"

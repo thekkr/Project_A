@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
-from apps.users.permissions import CanEditArticle, CanUpdateArticle, IsAuthorOrEditorRole, IsAuthorRole
+from apps.users.permissions import CanEditArticle, CanUpdateArticle, IsAdminRole, IsAuthorOrEditorRole, IsAuthorRole
 
 from .filters import ArticleFilter
 from .models import Article, ArticleVersion, Category, InlineImage
@@ -19,10 +19,14 @@ from .serializers import (
 )
 
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [IsAuthenticatedOrReadOnly()]
+        return [IsAdminRole()]
 
 
 class ArticleViewSet(viewsets.ModelViewSet):
