@@ -14,6 +14,13 @@ export async function login(username: string, password: string): Promise<void> {
   Cookies.set('refresh', data.refresh, { expires: 7 });
 }
 
+export async function loginWithGoogle(credential: string): Promise<{ created: boolean; has_roles: boolean }> {
+  const { data } = await api.post('/users/auth/google/', { credential });
+  Cookies.set('access', data.access, { expires: 1 });
+  Cookies.set('refresh', data.refresh, { expires: 7 });
+  return { created: data.created, has_roles: data.has_roles };
+}
+
 export function logout(): void {
   Cookies.remove('access');
   Cookies.remove('refresh');

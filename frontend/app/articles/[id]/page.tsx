@@ -21,7 +21,7 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
       </p>
 
       <div
-        className="prose max-w-none mb-10"
+        className="prose max-w-none mb-10 article-body"
         dangerouslySetInnerHTML={{ __html: article.body }}
       />
 

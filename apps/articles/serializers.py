@@ -9,6 +9,7 @@ ALLOWED_TAGS = [
     'ul', 'ol', 'li',
     'blockquote', 'pre', 'code',
     'a', 'img',
+    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
 ]
 
 
@@ -19,15 +20,45 @@ MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 import re as _re
 
 
+_ALLOWED_IMG_STYLE_PROPS = {
+    'width', 'float', 'display', 'margin', 'margin-left', 'margin-right',
+}
+_ALLOWED_FLOAT_VALUES = {'left', 'right', 'none'}
+_ALLOWED_DISPLAY_VALUES = {'block', 'inline', 'inline-block', 'none'}
+_LENGTH_RE = _re.compile(r'^[\d.]+(%|px|em|rem)$')
+_MARGIN_RE = _re.compile(r'^([\d.]+(%|px|em|rem)|auto)$')
+
+
 def _allow_img_attributes(tag, name, value):
     if tag == 'img':
         if name in ('src', 'alt', 'width', 'height', 'data-align'):
             return True
         if name == 'style':
-            # allow only width declarations
-            return bool(_re.fullmatch(r'width\s*:\s*[\d.]+(%|px|em|rem)\s*;?', value.strip()))
+            for decl in value.split(';'):
+                decl = decl.strip()
+                if not decl:
+                    continue
+                if ':' not in decl:
+                    return False
+                prop, val = decl.split(':', 1)
+                prop, val = prop.strip().lower(), val.strip().lower()
+                if prop not in _ALLOWED_IMG_STYLE_PROPS:
+                    return False
+                if prop == 'float' and val not in _ALLOWED_FLOAT_VALUES:
+                    return False
+                if prop == 'display' and val not in _ALLOWED_DISPLAY_VALUES:
+                    return False
+                if prop == 'width' and not _LENGTH_RE.match(val):
+                    return False
+                if prop in ('margin', 'margin-left', 'margin-right'):
+                    parts = val.split()
+                    if not all(_MARGIN_RE.match(p) for p in parts):
+                        return False
+            return True
         return False
     if tag == 'a' and name in ('href', 'title', 'rel'):
+        return True
+    if tag in ('th', 'td') and name in ('colspan', 'rowspan', 'colwidth'):
         return True
     return False
 

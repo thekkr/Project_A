@@ -1,11 +1,79 @@
+import os
+import re
+
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from rest_framework import status, viewsets
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Role, User
 from .permissions import IsAdminRole
-from .serializers import RoleAssignSerializer, UserDetailSerializer, UserListSerializer
+from .serializers import ProfileUpdateSerializer, RoleAssignSerializer, UserDetailSerializer, UserListSerializer
+
+
+def _issue_jwt(user):
+    refresh = RefreshToken.for_user(user)
+    return {'access': str(refresh.access_token), 'refresh': str(refresh)}
+
+
+def _derive_username(email: str) -> str:
+    """Derive a unique username from an email address."""
+    base = re.sub(r'[^a-zA-Z0-9_]', '_', email.split('@')[0])[:28] or 'user'
+    username = base
+    suffix = 1
+    while User.objects.filter(username=username).exists():
+        username = f'{base}_{suffix}'
+        suffix += 1
+    return username
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_auth(request):
+    """
+    Accepts a Google ID token (credential), verifies it, finds or creates the user,
+    and returns simplejwt access + refresh tokens.
+    """
+    credential = request.data.get('credential')
+    if not credential:
+        return Response({'detail': 'credential required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
+    if not client_id:
+        return Response({'detail': 'Google login not configured.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    try:
+        payload = id_token.verify_oauth2_token(credential, google_requests.Request(), client_id)
+    except ValueError as exc:
+        return Response({'detail': f'Invalid Google token: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    email = payload.get('email', '').lower()
+    if not email:
+        return Response({'detail': 'No email in Google token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not payload.get('email_verified'):
+        return Response({'detail': 'Google email not verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user, created = User.objects.get_or_create(
+        email=email,
+        defaults={
+            'username': _derive_username(email),
+            'first_name': payload.get('given_name', ''),
+            'last_name': payload.get('family_name', ''),
+            'avatar_url': payload.get('picture', ''),
+        },
+    )
+
+    if not user.is_active:
+        return Response({'detail': 'Account deactivated.'}, status=status.HTTP_403_FORBIDDEN)
+
+    tokens = _issue_jwt(user)
+    tokens['created'] = created
+    tokens['has_roles'] = user.roles.exists()
+    return Response(tokens)
 
 
 class UserViewSet(viewsets.ViewSet):
@@ -22,8 +90,13 @@ class UserViewSet(viewsets.ViewSet):
             return [IsAuthenticated()]
         return [IsAuthenticated(), IsAdminRole()]
 
-    @action(detail=False, methods=['get'], url_path='me')
+    @action(detail=False, methods=['get', 'patch'], url_path='me')
     def me(self, request):
+        if request.method == 'GET':
+            return Response(UserDetailSerializer(request.user).data)
+        serializer = ProfileUpdateSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(UserDetailSerializer(request.user).data)
 
     def list(self, request):

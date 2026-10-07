@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login } from '@/lib/auth';
+import { GoogleLogin } from '@react-oauth/google';
+import { login, loginWithGoogle } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,6 +11,22 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  async function handleGoogle(credentialResponse: any) {
+    setError('');
+    try {
+      const { created, has_roles } = await loginWithGoogle(credentialResponse.credential);
+      const next = new URLSearchParams(window.location.search).get('next') || '/';
+      if (created || !has_roles) {
+        // New user or no roles yet — land on home, nav will show no role links until admin assigns
+        window.location.href = next;
+      } else {
+        window.location.href = next;
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Google login failed.');
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -17,7 +34,7 @@ export default function LoginPage() {
     try {
       await login(username, password);
       const params = new URLSearchParams(window.location.search);
-      router.push(params.get('next') || '/');
+      window.location.href = params.get('next') || '/';
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Login failed.');
     } finally {
@@ -58,6 +75,23 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="flex items-center gap-3 my-4">
+              <hr className="flex-1 border-gray-200" />
+              <span className="text-xs text-gray-400">or</span>
+              <hr className="flex-1 border-gray-200" />
+            </div>
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogle}
+                onError={() => setError('Google login failed.')}
+                width="100%"
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

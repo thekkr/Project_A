@@ -21,6 +21,8 @@ class Role(models.Model):
 
 class User(AbstractUser):
     roles = models.ManyToManyField(Role, blank=True, related_name='users')
+    bio = models.TextField(blank=True, default='')
+    avatar_url = models.URLField(blank=True, default='')
 
     def has_role(self, role_name: str) -> bool:
         return self.roles.filter(name=role_name).exists()

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import api from '@/lib/api';
+import ArticlePreviewModal from '@/components/ArticlePreviewModal';
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
 
@@ -19,6 +20,7 @@ export default function EditorDashboard() {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [detail, setDetail] = useState<Record<number, any>>({});
   const [msg, setMsg] = useState('');
+  const [preview, setPreview] = useState<any | null>(null);
 
   async function loadDetail(id: number) {
     if (detail[id]) {
@@ -34,11 +36,13 @@ export default function EditorDashboard() {
     }
   }
 
+  const articlesKey = `/articles/?status=IN_REVIEW&page=${page}`;
+
   async function pickup(id: number) {
     try {
       const { data } = await api.post(`/articles/${id}/pickup/`);
       setMsg(data.detail);
-      mutate('/articles/?status=IN_REVIEW');
+      mutate(articlesKey);
     } catch (err: any) {
       setMsg(err.response?.data?.detail || 'Error.');
     }
@@ -48,7 +52,7 @@ export default function EditorDashboard() {
     try {
       await api.post(`/articles/${id}/publish/`, { comment: comment[id] || '' });
       setMsg('Published.');
-      mutate('/articles/?status=IN_REVIEW');
+      mutate(articlesKey);
     } catch (err: any) {
       setMsg(err.response?.data?.detail || 'Error.');
     }
@@ -59,9 +63,24 @@ export default function EditorDashboard() {
     try {
       await api.post(`/articles/${id}/send-back/`, { comment: comment[id] });
       setMsg('Sent back for revision.');
-      mutate('/articles/?status=IN_REVIEW');
+      mutate(articlesKey);
     } catch (err: any) {
       setMsg(err.response?.data?.detail || 'Error.');
+    }
+  }
+
+  async function openPreview(a: any) {
+    const loaded = detail[a.id];
+    if (loaded) {
+      setPreview({ ...a, body: loaded.body });
+      return;
+    }
+    try {
+      const { data } = await api.get(`/articles/${a.id}/`);
+      setDetail(d => ({ ...d, [a.id]: data }));
+      setPreview({ ...a, body: data.body });
+    } catch {
+      setMsg('Could not load article for preview.');
     }
   }
 
@@ -69,6 +88,7 @@ export default function EditorDashboard() {
 
   return (
     <div>
+      {preview && <ArticlePreviewModal article={preview} onClose={() => setPreview(null)} />}
       <h1 className="text-2xl font-bold mb-6">Editor Dashboard</h1>
       {msg && (
         <p className="mb-4 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">
@@ -100,6 +120,12 @@ export default function EditorDashboard() {
                   >
                     {expanded[a.id] ? 'Hide' : 'View'}
                   </button>
+                  <button
+                    onClick={() => openPreview(a)}
+                    className="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700"
+                  >
+                    Preview
+                  </button>
                   {isOwnArticle && (
                     <span className="text-xs text-gray-400 px-2">
                       Cannot self-review
@@ -126,7 +152,7 @@ export default function EditorDashboard() {
               {expanded[a.id] && detail[a.id] && (
                 <div className="mb-3 p-3 bg-gray-50 border rounded text-sm text-gray-800 max-h-64 overflow-y-auto">
                   <div
-                    className="prose prose-sm max-w-none"
+                    className="prose prose-sm max-w-none article-body"
                     dangerouslySetInnerHTML={{ __html: detail[a.id].body }}
                   />
                 </div>

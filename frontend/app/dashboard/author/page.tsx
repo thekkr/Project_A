@@ -3,6 +3,7 @@ import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import api from '@/lib/api';
 import RichTextEditor from '@/components/RichTextEditor';
+import ArticlePreviewModal from '@/components/ArticlePreviewModal';
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
 
@@ -28,6 +29,7 @@ export default function AuthorDashboard() {
   const [editForm, setEditForm] = useState<Record<number, { title: string; body: string }>>({});
   const [history, setHistory] = useState<Record<number, any[]>>({});
   const [saving, setSaving] = useState<Record<number, boolean>>({});
+  const [preview, setPreview] = useState<any | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -89,8 +91,34 @@ export default function AuthorDashboard() {
     }
   }
 
+  async function handleDelete(id: number, title: string) {
+    if (!confirm(`Delete draft "${title}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/articles/${id}/`);
+      setMsg('Draft deleted.');
+      mutate(articlesUrl);
+    } catch (err: any) {
+      setMsg(err.response?.data?.detail || 'Error deleting.');
+    }
+  }
+
+  async function openPreview(a: any) {
+    // Use already-loaded edit body if available, else fetch
+    if (editForm[a.id]?.body !== undefined) {
+      setPreview({ ...a, body: editForm[a.id].body });
+      return;
+    }
+    try {
+      const { data } = await api.get(`/articles/${a.id}/`);
+      setPreview({ ...a, body: data.body });
+    } catch {
+      setMsg('Could not load article for preview.');
+    }
+  }
+
   return (
     <div>
+      {preview && <ArticlePreviewModal article={preview} onClose={() => setPreview(null)} />}
       <h1 className="text-2xl font-bold mb-6">Author Dashboard</h1>
 
       <div className="bg-white border rounded-lg p-5 mb-8">
@@ -142,6 +170,12 @@ export default function AuthorDashboard() {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[a.status]}`}>{a.status}</span>
+                <button
+                  onClick={() => openPreview(a)}
+                  className="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700"
+                >
+                  Preview
+                </button>
                 {a.status === 'IN_REVIEW' && (
                   <span className="text-xs text-gray-500">
                     {a.reviewer ? `reviewer: ${a.reviewer}` : 'awaiting pickup'}
@@ -168,6 +202,12 @@ export default function AuthorDashboard() {
                       className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
                     >
                       Submit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(a.id, a.title)}
+                      className="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                    >
+                      Delete
                     </button>
                   </div>
                 )}
