@@ -1,7 +1,8 @@
 'use client';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { Node } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
-import { Image as TiptapImage } from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
@@ -20,40 +21,91 @@ const FLOAT_STYLE: Record<string, string> = {
   center: 'display:block;margin:0 auto',
 };
 
-const CustomImage = TiptapImage.extend({
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    figure: {
+      insertFigure: (attrs: { src: string; alt?: string; align?: string; width?: string; caption?: string }) => ReturnType;
+    };
+  }
+}
+
+const CustomFigure = Node.create({
+  name: 'figure',
+  group: 'block',
+  draggable: true,
+  selectable: true,
+  atom: true,
+
   addAttributes() {
     return {
-      ...this.parent?.(),
-      align: {
-        default: 'center',
-        renderHTML: (a) => ({ 'data-align': a.align }),
-        parseHTML: (el) => (el as HTMLElement).getAttribute('data-align') || 'center',
-      },
-      width: {
-        default: '100%',
-        renderHTML: () => ({}),
-        parseHTML: (el) => {
-          // style may be combined, e.g. "float:right;margin-left:1em;width:25%"
-          const raw = (el as HTMLElement).getAttribute('style') || '';
-          const match = raw.match(/width\s*:\s*([^;]+)/);
-          return match ? match[1].trim() : '100%';
-        },
-      },
+      src: { default: null },
+      alt: { default: '' },
+      align: { default: 'center' },
+      width: { default: '100%' },
+      caption: { default: '' },
     };
   },
 
-  renderHTML({ node, HTMLAttributes }) {
-    const align: string = node.attrs.align || 'center';
-    const width: string = node.attrs.width || '100%';
+  parseHTML() {
+    return [
+      {
+        tag: 'figure',
+        getAttrs: (el) => {
+          const img = (el as HTMLElement).querySelector('img');
+          const figcaption = (el as HTMLElement).querySelector('figcaption');
+          const figStyle = (el as HTMLElement).getAttribute('style') || '';
+          const widthMatch = figStyle.match(/width\s*:\s*([^;]+)/);
+          return {
+            src: img?.getAttribute('src') || null,
+            alt: img?.getAttribute('alt') || '',
+            align: (el as HTMLElement).getAttribute('data-align') || img?.getAttribute('data-align') || 'center',
+            width: widthMatch ? widthMatch[1].trim() : '100%',
+            caption: figcaption?.textContent?.trim() || '',
+          };
+        },
+      },
+      {
+        tag: 'img',
+        getAttrs: (el) => {
+          if ((el as HTMLElement).parentElement?.tagName === 'FIGURE') return false;
+          const raw = (el as HTMLElement).getAttribute('style') || '';
+          const match = raw.match(/width\s*:\s*([^;]+)/);
+          return {
+            src: (el as HTMLElement).getAttribute('src') || null,
+            alt: (el as HTMLElement).getAttribute('alt') || '',
+            align: (el as HTMLElement).getAttribute('data-align') || 'center',
+            width: match ? match[1].trim() : '100%',
+            caption: '',
+          };
+        },
+      },
+    ];
+  },
+
+  renderHTML({ node }) {
+    const { src, alt, align, width, caption } = node.attrs;
     const floatPart = FLOAT_STYLE[align] ?? '';
-    const style = floatPart ? `${floatPart};width:${width}` : `width:${width}`;
-    return ['img', { ...HTMLAttributes, 'data-align': align, style }];
+    const figStyle = floatPart ? `${floatPart};width:${width}` : `width:${width}`;
+    return [
+      'figure',
+      { 'data-align': align, style: figStyle },
+      ['img', { src, alt: alt || '', 'data-align': align, style: 'width:100%;display:block' }],
+      ['figcaption', {}, caption || ''],
+    ];
+  },
+
+  addCommands() {
+    return {
+      insertFigure:
+        (attrs) =>
+        ({ commands }) =>
+          commands.insertContent({ type: this.name, attrs }),
+    };
   },
 });
 
-const IMAGE_TOOLBAR_WIDTH = 380;
+const IMAGE_TOOLBAR_WIDTH = 420;
 
-// Offset of el relative to container, independent of viewport scroll
 function offsetRelativeTo(el: HTMLElement, container: HTMLElement): { top: number; left: number } {
   let top = 0;
   let left = 0;
@@ -73,19 +125,23 @@ interface Props {
 }
 
 export default function RichTextEditor({ value, onChange, placeholder = 'Write your article…' }: Props) {
-  const [imageToolbar, setImageToolbar] = useState<{ top: number; left: number; align: string; width: string } | null>(null);
+  const [imageToolbar, setImageToolbar] = useState<{
+    top: number; left: number; align: string; width: string; caption: string;
+  } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [linkModal, setLinkModal] = useState<{ visible: boolean; url: string }>({ visible: false, url: '' });
   const [isDragOver, setIsDragOver] = useState(false);
   const linkInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalUpdate = useRef(false);
+  const captionInputActive = useRef(false);
+  const selectedFigurePosRef = useRef<number | null>(null);
 
   const editor = useEditor({
     immediatelyRender: true,
     extensions: [
       StarterKit.configure({ link: false }),
-      CustomImage.configure({ inline: false, allowBase64: false }),
+      CustomFigure,
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
       Placeholder.configure({ placeholder }),
       Underline,
@@ -103,19 +159,21 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
     },
     onSelectionUpdate({ editor }) {
       const { node } = editor.state.selection as any;
-      if (node?.type.name === 'image') {
+      if (node?.type.name === 'figure') {
+        selectedFigurePosRef.current = editor.state.selection.from;
         const dom = editor.view.nodeDOM(editor.state.selection.from) as HTMLElement;
         if (dom && editorRef.current) {
           const { top: rawTop, left: rawLeft } = offsetRelativeTo(dom, editorRef.current);
           const containerWidth = editorRef.current.offsetWidth;
           setImageToolbar({
-            top: Math.max(0, rawTop - 44),
+            top: rawTop + 4,
             left: Math.min(rawLeft, Math.max(0, containerWidth - IMAGE_TOOLBAR_WIDTH)),
             align: node.attrs.align || 'center',
             width: node.attrs.width || '100%',
+            caption: node.attrs.caption || '',
           });
         }
-      } else {
+      } else if (!captionInputActive.current) {
         setImageToolbar(null);
       }
     },
@@ -124,7 +182,6 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
     },
   });
 
-  // Sync external value changes without cursor jump
   useEffect(() => {
     if (!editor) return;
     if (isInternalUpdate.current) {
@@ -137,7 +194,6 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
     }
   }, [value, editor]);
 
-  // Focus link input when modal opens
   useEffect(() => {
     if (linkModal.visible) {
       setTimeout(() => linkInputRef.current?.focus(), 0);
@@ -183,7 +239,7 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
       const { data } = await api.post('/articles/upload-image/', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      editor.chain().focus().setImage({ src: data.url, align: 'center', width: '100%' } as any).run();
+      editor.chain().focus().insertFigure({ src: data.url, align: 'center', width: '100%', caption: '' }).run();
     } catch (err: any) {
       const msg = err?.response?.data?.image?.[0] || err?.response?.data?.detail || 'Image upload failed.';
       setUploadError(msg);
@@ -212,8 +268,14 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
 
   const setImageAttr = useCallback((attr: Record<string, string>) => {
     if (!editor) return;
-    editor.chain().focus().updateAttributes('image', attr).run();
+    editor.chain().focus().updateAttributes('figure', attr).run();
     setImageToolbar(prev => prev ? { ...prev, ...attr } : null);
+  }, [editor]);
+
+  const saveCaptionToNode = useCallback((caption: string) => {
+    if (!editor || selectedFigurePosRef.current === null) return;
+    const pos = selectedFigurePosRef.current;
+    editor.chain().setNodeSelection(pos).updateAttributes('figure', { caption }).run();
   }, [editor]);
 
   if (!editor) return null;
@@ -261,7 +323,6 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
           </>
         )}
         <div className="w-px bg-gray-300 mx-1" />
-        {/* Link controls */}
         <div className="relative">
           <ToolBtn onClick={openLinkModal} active={isLink} title="Insert / edit link (Ctrl+K)">Link</ToolBtn>
           {linkModal.visible && (
@@ -296,7 +357,6 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
         <ToolBtn onClick={() => editor.chain().focus().redo().run()} active={false} title="Redo (Ctrl+Y)">↪</ToolBtn>
       </div>
 
-      {/* Upload error banner */}
       {uploadError && (
         <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border-b border-red-200 text-red-700 text-xs">
           <span>{uploadError}</span>
@@ -304,13 +364,47 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
         </div>
       )}
 
-      {/* Editor area — drag-and-drop zone + image toolbar */}
       <div
         ref={editorRef}
         className={`relative transition-colors ${isDragOver ? 'bg-blue-50' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
+        onMouseDown={(e) => {
+          const figure = (e.target as HTMLElement).closest('figure') as HTMLElement | null;
+          if (!figure || !editor) return;
+          requestAnimationFrame(() => {
+            if (!editorRef.current) return;
+            const view = editor.view;
+            let figurePos = -1;
+            let figureNode: any = null;
+            view.state.doc.descendants((node, pos) => {
+              if (figurePos !== -1) return false;
+              if (node.type.name === 'figure') {
+                const dom = view.nodeDOM(pos) as HTMLElement | null;
+                if (dom && (dom === figure || dom.contains(figure) || figure.contains(dom))) {
+                  figurePos = pos;
+                  figureNode = node;
+                }
+              }
+              return figurePos === -1;
+            });
+            if (figurePos === -1 || !figureNode) return;
+            try {
+              view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, figurePos)));
+            } catch {}
+            selectedFigurePosRef.current = figurePos;
+            const { top: rawTop, left: rawLeft } = offsetRelativeTo(figure, editorRef.current!);
+            const containerWidth = editorRef.current!.offsetWidth;
+            setImageToolbar({
+              top: rawTop + 4,
+              left: Math.min(rawLeft, Math.max(0, containerWidth - IMAGE_TOOLBAR_WIDTH)),
+              align: figureNode.attrs.align || 'center',
+              width: figureNode.attrs.width || '100%',
+              caption: figureNode.attrs.caption || '',
+            });
+          });
+        }}
       >
         {isDragOver && (
           <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none border-2 border-dashed border-blue-400 rounded text-blue-500 text-sm font-medium bg-blue-50/80">
@@ -319,26 +413,47 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
         )}
         {imageToolbar && (
           <div
-            className="absolute z-10 flex gap-1 bg-white border rounded shadow-md px-2 py-1 text-xs"
-            style={{ top: imageToolbar.top, left: imageToolbar.left }}
+            className="absolute z-10 flex flex-col gap-1.5 bg-white border rounded shadow-md px-2 py-1.5 text-xs"
+            style={{ top: imageToolbar.top, left: imageToolbar.left, width: IMAGE_TOOLBAR_WIDTH }}
             onMouseDown={(e) => e.preventDefault()}
           >
-            <span className="text-gray-400 self-center mr-1">Align:</span>
-            <ToolBtn onClick={() => setImageAttr({ align: 'left' })} active={imageToolbar.align === 'left'} title="Float left">Left</ToolBtn>
-            <ToolBtn onClick={() => setImageAttr({ align: 'center' })} active={imageToolbar.align === 'center'} title="Center">Center</ToolBtn>
-            <ToolBtn onClick={() => setImageAttr({ align: 'right' })} active={imageToolbar.align === 'right'} title="Float right">Right</ToolBtn>
-            <div className="w-px bg-gray-300 mx-1" />
-            <span className="text-gray-400 self-center mr-1">Size:</span>
-            <ToolBtn onClick={() => setImageAttr({ width: '25%' })} active={imageToolbar.width === '25%'} title="25%">25%</ToolBtn>
-            <ToolBtn onClick={() => setImageAttr({ width: '50%' })} active={imageToolbar.width === '50%'} title="50%">50%</ToolBtn>
-            <ToolBtn onClick={() => setImageAttr({ width: '75%' })} active={imageToolbar.width === '75%'} title="75%">75%</ToolBtn>
-            <ToolBtn onClick={() => setImageAttr({ width: '100%' })} active={imageToolbar.width === '100%'} title="100%">100%</ToolBtn>
+            <div className="flex gap-1 items-center flex-wrap">
+              <span className="text-gray-400 self-center mr-1">Align:</span>
+              <ToolBtn onClick={() => setImageAttr({ align: 'left' })} active={imageToolbar.align === 'left'} title="Float left">Left</ToolBtn>
+              <ToolBtn onClick={() => setImageAttr({ align: 'center' })} active={imageToolbar.align === 'center'} title="Center">Center</ToolBtn>
+              <ToolBtn onClick={() => setImageAttr({ align: 'right' })} active={imageToolbar.align === 'right'} title="Float right">Right</ToolBtn>
+              <div className="w-px bg-gray-300 mx-1" />
+              <span className="text-gray-400 self-center mr-1">Size:</span>
+              <ToolBtn onClick={() => setImageAttr({ width: '25%' })} active={imageToolbar.width === '25%'} title="25%">25%</ToolBtn>
+              <ToolBtn onClick={() => setImageAttr({ width: '50%' })} active={imageToolbar.width === '50%'} title="50%">50%</ToolBtn>
+              <ToolBtn onClick={() => setImageAttr({ width: '75%' })} active={imageToolbar.width === '75%'} title="75%">75%</ToolBtn>
+              <ToolBtn onClick={() => setImageAttr({ width: '100%' })} active={imageToolbar.width === '100%'} title="100%">100%</ToolBtn>
+            </div>
+            <div className="flex gap-1 items-center border-t pt-1">
+              <span className="text-gray-400 shrink-0">Caption:</span>
+              <input
+                type="text"
+                value={imageToolbar.caption}
+                onChange={(e) => setImageToolbar(prev => prev ? { ...prev, caption: e.target.value } : null)}
+                onFocus={() => { captionInputActive.current = true; }}
+                onBlur={(e) => {
+                  captionInputActive.current = false;
+                  saveCaptionToNode(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                  e.stopPropagation();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                placeholder="Add a caption…"
+                className="flex-1 border rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-black"
+              />
+            </div>
           </div>
         )}
         <EditorContent editor={editor} />
       </div>
 
-      {/* Word / char count footer */}
       <div className="px-4 py-1.5 border-t bg-gray-50 text-xs text-gray-400 text-right select-none">
         {wordCount} words · {charCount} characters
       </div>

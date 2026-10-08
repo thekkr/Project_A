@@ -47,6 +47,26 @@ textarea::placeholder {
   height: 0;
 }
 
+/* TipTap figure/figcaption */
+.tiptap figure {
+  margin: 0.5rem 0;
+  overflow: hidden;
+}
+.tiptap figure img {
+  float: none !important;
+  margin: 0 !important;
+  width: 100%;
+  display: block;
+  pointer-events: none;
+}
+.tiptap figcaption {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
 /* TipTap image alignment */
 .tiptap img[data-align="left"] {
   float: left;
@@ -117,6 +137,25 @@ textarea::placeholder {
   float: none !important;
   display: block !important;
   margin: 0.5rem auto !important;
+}
+/* Article figure/figcaption */
+.article-body figure {
+  margin: 0.5rem 0;
+  overflow: hidden;
+}
+.article-body figure img {
+  float: none !important;
+  margin: 0 !important;
+  width: 100%;
+  display: block;
+}
+.article-body figcaption {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+  font-style: italic;
+  clear: both;
 }
 /* Clearfix so container encloses floated images */
 .article-body::after {

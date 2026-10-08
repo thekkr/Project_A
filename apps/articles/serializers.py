@@ -1,4 +1,5 @@
 import bleach
+from bleach.css_sanitizer import CSSSanitizer
 from rest_framework import serializers
 
 from .models import Article, ArticleVersion, Category, InlineImage
@@ -8,7 +9,7 @@ ALLOWED_TAGS = [
     'h2', 'h3', 'h4',
     'ul', 'ol', 'li',
     'blockquote', 'pre', 'code',
-    'a', 'img',
+    'a', 'img', 'figure', 'figcaption',
     'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
 ]
 
@@ -29,32 +30,44 @@ _LENGTH_RE = _re.compile(r'^[\d.]+(%|px|em|rem)$')
 _MARGIN_RE = _re.compile(r'^([\d.]+(%|px|em|rem)|auto)$')
 
 
+def _allow_style_props(value):
+    for decl in value.split(';'):
+        decl = decl.strip()
+        if not decl:
+            continue
+        if ':' not in decl:
+            return False
+        prop, val = decl.split(':', 1)
+        prop, val = prop.strip().lower(), val.strip().lower()
+        if prop not in _ALLOWED_IMG_STYLE_PROPS:
+            return False
+        if prop == 'float' and val not in _ALLOWED_FLOAT_VALUES:
+            return False
+        if prop == 'display' and val not in _ALLOWED_DISPLAY_VALUES:
+            return False
+        if prop == 'width' and not _LENGTH_RE.match(val):
+            return False
+        if prop in ('margin', 'margin-left', 'margin-right'):
+            parts = val.split()
+            if not all(_MARGIN_RE.match(p) for p in parts):
+                return False
+    return True
+
+
 def _allow_img_attributes(tag, name, value):
+    if tag == 'figure':
+        if name == 'data-align':
+            return True
+        if name == 'style':
+            return _allow_style_props(value)
+        return False
+    if tag == 'figcaption':
+        return False
     if tag == 'img':
         if name in ('src', 'alt', 'width', 'height', 'data-align'):
             return True
         if name == 'style':
-            for decl in value.split(';'):
-                decl = decl.strip()
-                if not decl:
-                    continue
-                if ':' not in decl:
-                    return False
-                prop, val = decl.split(':', 1)
-                prop, val = prop.strip().lower(), val.strip().lower()
-                if prop not in _ALLOWED_IMG_STYLE_PROPS:
-                    return False
-                if prop == 'float' and val not in _ALLOWED_FLOAT_VALUES:
-                    return False
-                if prop == 'display' and val not in _ALLOWED_DISPLAY_VALUES:
-                    return False
-                if prop == 'width' and not _LENGTH_RE.match(val):
-                    return False
-                if prop in ('margin', 'margin-left', 'margin-right'):
-                    parts = val.split()
-                    if not all(_MARGIN_RE.match(p) for p in parts):
-                        return False
-            return True
+            return _allow_style_props(value)
         return False
     if tag == 'a' and name in ('href', 'title', 'rel'):
         return True
@@ -63,8 +76,18 @@ def _allow_img_attributes(tag, name, value):
     return False
 
 
+_CSS_SANITIZER = CSSSanitizer(
+    allowed_css_properties=['float', 'width', 'display', 'margin', 'margin-left', 'margin-right']
+)
+
 def sanitize_html(value: str) -> str:
-    return bleach.clean(value, tags=ALLOWED_TAGS, attributes=_allow_img_attributes, strip=True)
+    return bleach.clean(
+        value,
+        tags=ALLOWED_TAGS,
+        attributes=_allow_img_attributes,
+        css_sanitizer=_CSS_SANITIZER,
+        strip=True,
+    )
 
 
 class CategorySerializer(serializers.ModelSerializer):
