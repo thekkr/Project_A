@@ -229,7 +229,7 @@ export default function Nav() {
       {/* ══════════ MOBILE BOTTOM TAB BAR ══════════════════ */}
       {loggedIn && me && (
         <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
-          style={{ background: 'var(--nav-bg)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          style={{ background: 'var(--nav-bg)', borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--nav-fg)' }}>
           {/* Inner wrapper is relative so FAB can position absolute above bar */}
           <div className="relative">
             <LimelightNav
