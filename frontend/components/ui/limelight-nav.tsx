@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useLayoutEffect, cloneElement } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect, cloneElement } from 'react';
 
 export type NavItem = {
   id: string | number;
@@ -32,21 +32,45 @@ export function LimelightNav({
   const [isReady, setIsReady] = useState(false);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const barRef   = useRef<HTMLDivElement>(null);
+  const navRef   = useRef<HTMLElement>(null);
 
-  useLayoutEffect(() => {
-    if (!items.length) return;
+  // Reusable: move the bar to the active item (no transition guard needed here)
+  function reposition() {
     const bar  = barRef.current;
     const item = itemRefs.current[activeIndex];
     if (!bar || !item) return;
-
-    // In icon-text / text mode bar matches item width; otherwise fixed 44 px
     if (variant === 'icon-text') {
       bar.style.width = item.offsetWidth + 'px';
     }
     bar.style.left = `${item.offsetLeft + item.offsetWidth / 2 - bar.offsetWidth / 2}px`;
+  }
 
-    if (!isReady) setTimeout(() => setIsReady(true), 40);
-  }, [activeIndex, isReady, items, variant]);
+  // Run without transition on every activeIndex / variant change
+  useLayoutEffect(() => {
+    if (!items.length) return;
+    reposition();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, items, variant]);
+
+  // Enable transitions after first paint; also re-measure after fonts settle
+  useEffect(() => {
+    const t = setTimeout(() => {
+      reposition();
+      setIsReady(true);
+    }, 60);
+
+    // Re-measure once all fonts are loaded (catches async Google Fonts shift)
+    document.fonts?.ready.then(() => reposition());
+
+    // Re-measure if any nav item resizes (e.g. font swap changes label width)
+    const ro = new ResizeObserver(() => reposition());
+    const nav = navRef.current;
+    if (nav) ro.observe(nav);
+    itemRefs.current.forEach(el => el && ro.observe(el));
+
+    return () => { clearTimeout(t); ro.disconnect(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, items, variant]);
 
   if (!items.length) return null;
 
@@ -54,6 +78,7 @@ export function LimelightNav({
 
   return (
     <nav
+      ref={navRef}
       className={`relative inline-flex items-center ${className}`}
       style={{ overflow: 'visible' }}
     >
