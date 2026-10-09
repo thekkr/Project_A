@@ -1,5 +1,7 @@
 'use client';
-import React, { useState, useRef, useLayoutEffect, useEffect, cloneElement } from 'react';
+import React, {
+  useState, useRef, useLayoutEffect, useEffect, useCallback, cloneElement,
+} from 'react';
 
 export type NavItem = {
   id: string | number;
@@ -34,43 +36,49 @@ export function LimelightNav({
   const barRef   = useRef<HTMLDivElement>(null);
   const navRef   = useRef<HTMLElement>(null);
 
-  // Reusable: move the bar to the active item (no transition guard needed here)
-  function reposition() {
+  // Keep refs current so reposition never has stale closure values
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
+  const variantRef = useRef(variant);
+  variantRef.current = variant;
+
+  // Stable reposition — always reads from refs, safe to call from any async context
+  const reposition = useCallback(() => {
     const bar  = barRef.current;
-    const item = itemRefs.current[activeIndex];
+    const item = itemRefs.current[activeIndexRef.current];
     if (!bar || !item) return;
-    if (variant === 'icon-text') {
+    if (variantRef.current === 'icon-text') {
       bar.style.width = item.offsetWidth + 'px';
     }
     bar.style.left = `${item.offsetLeft + item.offsetWidth / 2 - bar.offsetWidth / 2}px`;
-  }
+  }, []); // no deps — reads from refs
 
-  // Run without transition on every activeIndex / variant change
+  // Move bar immediately (no transition) on index / items / variant change
   useLayoutEffect(() => {
-    if (!items.length) return;
     reposition();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, items, variant]);
+  }, [activeIndex, items, variant, reposition]);
 
-  // Enable transitions after first paint; also re-measure after fonts settle
+  // Observers: catch async font reflow and any later layout shifts
   useEffect(() => {
-    const t = setTimeout(() => {
-      reposition();
-      setIsReady(true);
-    }, 60);
+    // Next paint — catches cached-font reflow
+    const raf = requestAnimationFrame(reposition);
 
-    // Re-measure once all fonts are loaded (catches async Google Fonts shift)
-    document.fonts?.ready.then(() => reposition());
+    // After fonts fully load → wait one more frame for browser reflow
+    document.fonts?.ready.then(() => requestAnimationFrame(reposition));
 
-    // Re-measure if any nav item resizes (e.g. font swap changes label width)
-    const ro = new ResizeObserver(() => reposition());
-    const nav = navRef.current;
-    if (nav) ro.observe(nav);
+    // Re-measure whenever any item resizes (font swap, label change)
+    const ro = new ResizeObserver(reposition);
     itemRefs.current.forEach(el => el && ro.observe(el));
+    if (navRef.current) ro.observe(navRef.current);
 
-    return () => { clearTimeout(t); ro.disconnect(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, items, variant]);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+  }, [activeIndex, items, variant, reposition]);
+
+  // Enable transitions once, after first paint settles
+  useEffect(() => {
+    const t = setTimeout(() => setIsReady(true), 150);
+    return () => clearTimeout(t);
+  }, []);
 
   if (!items.length) return null;
 
@@ -88,11 +96,11 @@ export function LimelightNav({
           ref={el => { itemRefs.current[idx] = el; }}
           onClick={() => { onTabChange?.(idx); onClick?.(); }}
           aria-label={label}
-          className={`
-            relative z-20 flex h-full cursor-pointer items-center justify-center
-            bg-transparent border-0 outline-none
-            ${isTextVariant ? 'flex-row gap-1.5 px-4' : 'flex-col gap-0.5 px-4'}
-          `}
+          className={[
+            'relative z-20 flex h-full cursor-pointer items-center justify-center',
+            'bg-transparent border-0 outline-none',
+            isTextVariant ? 'flex-row gap-1.5 px-4' : 'flex-col gap-0.5 px-4',
+          ].join(' ')}
         >
           {cloneElement(icon, {
             className: [
@@ -101,13 +109,16 @@ export function LimelightNav({
               icon.props?.className ?? '',
             ].join(' '),
           })}
-          {(variant === 'icon-label') && label && (
-            <span className={`transition-opacity duration-150 leading-none ${idx === activeIndex ? 'opacity-100' : 'opacity-35'}`}
+
+          {variant === 'icon-label' && label && (
+            <span
+              className={`transition-opacity duration-150 leading-none ${idx === activeIndex ? 'opacity-100' : 'opacity-35'}`}
               style={{ fontSize: 9, fontWeight: idx === activeIndex ? 600 : 400 }}>
               {label}
             </span>
           )}
-          {(variant === 'icon-text') && label && (
+
+          {variant === 'icon-text' && label && (
             <span className={`text-xs font-semibold whitespace-nowrap transition-opacity duration-150 ${idx === activeIndex ? 'opacity-100' : 'opacity-35'}`}>
               {label}
             </span>
@@ -125,11 +136,10 @@ export function LimelightNav({
           background: limelightColor,
           boxShadow: `0 40px 14px ${limelightColor}`,
           transition: isReady
-            ? `left 300ms cubic-bezier(0.4,0,0.2,1), width 300ms cubic-bezier(0.4,0,0.2,1)`
+            ? 'left 300ms cubic-bezier(0.4,0,0.2,1), width 300ms cubic-bezier(0.4,0,0.2,1)'
             : 'none',
         }}
       >
-        {/* Cone glow */}
         <div
           className="absolute pointer-events-none"
           style={{
