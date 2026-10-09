@@ -88,7 +88,7 @@ export function LimelightNav({
   return (
     <nav
       ref={navRef}
-      className={`relative inline-flex items-center ${className}`}
+      className={`relative flex items-center ${className}`}
       style={{ overflow: 'visible' }}
     >
       {items.map(({ id, icon, label, onClick }, idx) => (
@@ -98,9 +98,9 @@ export function LimelightNav({
           onClick={() => { onTabChange?.(idx); onClick?.(); }}
           aria-label={label}
           className={[
-            'relative z-20 flex h-full cursor-pointer items-center justify-center',
+            'relative z-20 flex flex-1 h-full cursor-pointer items-center justify-center',
             'bg-transparent border-0 outline-none',
-            isTextVariant ? 'flex-row gap-1.5 px-4' : 'flex-col gap-0.5 px-4',
+            isTextVariant ? 'flex-row gap-1.5 px-4' : 'flex-col gap-0.5',
           ].join(' ')}
         >
           {cloneElement(icon, {
