@@ -228,28 +228,30 @@ export default function Nav() {
 
       {/* ══════════ MOBILE BOTTOM TAB BAR ══════════════════ */}
       {loggedIn && me && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden relative"
+        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
           style={{ background: 'var(--nav-bg)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          {/* Inner wrapper is relative so FAB can position absolute above bar */}
+          <div className="relative">
+            <LimelightNav
+              items={tabs}
+              activeIndex={currentIdx}
+              variant="icon-label"
+              className="w-full rounded-none h-14"
+              limelightColor="var(--accent)"
+            />
 
-          <LimelightNav
-            items={tabs}
-            activeIndex={currentIdx}
-            variant="icon-label"
-            className="w-full rounded-none h-14"
-            limelightColor="var(--accent)"
-          />
-
-          {/* Write FAB floats above center of the bar */}
-          {isAuthor && (
-            <Link href="/dashboard/author"
-              className="absolute left-1/2 -translate-x-1/2 -top-5 w-12 h-12 rounded-full flex items-center justify-center"
-              style={{
-                background: 'var(--accent)', color: 'var(--accent-fg)',
-                boxShadow: '0 4px 16px rgba(245,158,11,0.55)',
-              }}>
-              {IcoWrite}
-            </Link>
-          )}
+            {/* Write FAB floats above center of the bar */}
+            {isAuthor && (
+              <Link href="/dashboard/author"
+                className="absolute left-1/2 -translate-x-1/2 -top-5 w-12 h-12 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'var(--accent)', color: 'var(--accent-fg)',
+                  boxShadow: '0 4px 16px rgba(245,158,11,0.55)',
+                }}>
+                {IcoWrite}
+              </Link>
+            )}
+          </div>
         </nav>
       )}
 
