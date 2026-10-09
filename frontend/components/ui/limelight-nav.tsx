@@ -47,10 +47,11 @@ export function LimelightNav({
     const bar  = barRef.current;
     const item = itemRefs.current[activeIndexRef.current];
     if (!bar || !item) return;
-    if (variantRef.current === 'icon-text') {
-      bar.style.width = item.offsetWidth + 'px';
-    }
-    bar.style.left = `${item.offsetLeft + item.offsetWidth / 2 - bar.offsetWidth / 2}px`;
+    // Compute target bar width WITHOUT reading bar.offsetWidth — during a CSS
+    // transition bar.offsetWidth returns the mid-animation value, making left wrong.
+    const targetWidth = variantRef.current === 'icon-text' ? item.offsetWidth : 44;
+    bar.style.width = `${targetWidth}px`;
+    bar.style.left  = `${item.offsetLeft + item.offsetWidth / 2 - targetWidth / 2}px`;
   }, []); // no deps — reads from refs
 
   // Move bar immediately (no transition) on index / items / variant change
@@ -131,7 +132,7 @@ export function LimelightNav({
         ref={barRef}
         className="absolute top-0 z-10 h-[5px] rounded-full pointer-events-none"
         style={{
-          width: isTextVariant ? 'auto' : 44,
+          width: 44,
           left: -999,
           background: limelightColor,
           boxShadow: `0 40px 14px ${limelightColor}`,
