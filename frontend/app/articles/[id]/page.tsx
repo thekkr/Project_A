@@ -1,6 +1,7 @@
 'use client';
 import { use } from 'react';
 import useSWR from 'swr';
+import DOMPurify from 'isomorphic-dompurify';
 import api from '@/lib/api';
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
@@ -22,7 +23,7 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
 
       <div
         className="prose max-w-none mb-10 article-body"
-        dangerouslySetInnerHTML={{ __html: article.body }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.body) }}
       />
 
       {article.review_history?.length > 0 && (

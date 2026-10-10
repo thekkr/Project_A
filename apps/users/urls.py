@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import UserViewSet, google_auth
+from .views import UserViewSet, google_auth, logout_view
 
 me_view = UserViewSet.as_view({'get': 'me', 'patch': 'me'})
 list_view = UserViewSet.as_view({'get': 'list'})
@@ -12,6 +12,7 @@ reassign_reviewer = UserViewSet.as_view({'post': 'reassign_reviewer'})
 
 urlpatterns = [
     path('auth/google/', google_auth, name='google-auth'),
+    path('auth/logout/', logout_view, name='logout'),
     path('me/', me_view, name='user-me'),
     path('', list_view, name='user-list'),
     path('<int:pk>/', detail_view, name='user-detail'),

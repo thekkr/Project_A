@@ -11,19 +11,19 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  function safeNext(): string {
+    const next = new URLSearchParams(window.location.search).get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+    return '/';
+  }
+
   async function handleGoogle(credentialResponse: any) {
     setError('');
     try {
-      const { created, has_roles } = await loginWithGoogle(credentialResponse.credential);
-      const next = new URLSearchParams(window.location.search).get('next') || '/';
-      if (created || !has_roles) {
-        // New user or no roles yet — land on home, nav will show no role links until admin assigns
-        window.location.href = next;
-      } else {
-        window.location.href = next;
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Google login failed.');
+      await loginWithGoogle(credentialResponse.credential);
+      window.location.href = safeNext();
+    } catch {
+      setError('Google login failed.');
     }
   }
 
@@ -33,10 +33,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(username, password);
-      const params = new URLSearchParams(window.location.search);
-      window.location.href = params.get('next') || '/';
+      window.location.href = safeNext();
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Login failed.');
+      setError(err.response?.data?.detail || 'Login failed.');
     } finally {
       setLoading(false);
     }

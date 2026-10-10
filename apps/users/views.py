@@ -1,13 +1,19 @@
+import logging
 import os
 import re
+import uuid
 
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from rest_framework import status, viewsets
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+
+logger = logging.getLogger(__name__)
 
 from .models import Role, User
 from .permissions import IsAdminRole
@@ -20,19 +26,19 @@ def _issue_jwt(user):
 
 
 def _derive_username(email: str) -> str:
-    """Derive a unique username from an email address."""
-    base = re.sub(r'[^a-zA-Z0-9_]', '_', email.split('@')[0])[:28] or 'user'
-    username = base
-    suffix = 1
-    while User.objects.filter(username=username).exists():
-        username = f'{base}_{suffix}'
-        suffix += 1
-    return username
+    base = re.sub(r'[^a-zA-Z0-9_]', '_', email.split('@')[0])[:20] or 'user'
+    return f'{base}_{uuid.uuid4().hex[:6]}'
+
+
+class AuthRateThrottle(AnonRateThrottle):
+    rate = '10/minute'
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def google_auth(request):
+    if not AuthRateThrottle().allow_request(request, None):
+        return Response({'detail': 'Too many requests.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
     """
     Accepts a Google ID token (credential), verifies it, finds or creates the user,
     and returns simplejwt access + refresh tokens.
@@ -47,8 +53,9 @@ def google_auth(request):
 
     try:
         payload = id_token.verify_oauth2_token(credential, google_requests.Request(), client_id)
-    except ValueError as exc:
-        return Response({'detail': f'Invalid Google token: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
+    except ValueError:
+        logger.warning('Google token validation failed', exc_info=True)
+        return Response({'detail': 'Invalid Google credential.'}, status=status.HTTP_400_BAD_REQUEST)
 
     email = payload.get('email', '').lower()
     if not email:
@@ -74,6 +81,18 @@ def google_auth(request):
     tokens['created'] = created
     tokens['has_roles'] = user.roles.exists()
     return Response(tokens)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    refresh_token = request.data.get('refresh')
+    if refresh_token:
+        try:
+            RefreshToken(refresh_token).blacklist()
+        except TokenError:
+            pass
+    return Response({'detail': 'Logged out.'})
 
 
 class UserViewSet(viewsets.ViewSet):

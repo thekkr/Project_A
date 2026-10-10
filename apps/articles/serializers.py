@@ -173,12 +173,20 @@ class InlineImageSerializer(serializers.ModelSerializer):
         fields = ('id', 'image')
 
     def validate_image(self, value):
-        if hasattr(value, 'content_type') and value.content_type not in ALLOWED_IMAGE_TYPES:
-            raise serializers.ValidationError(
-                f'Unsupported image type. Allowed: jpeg, png, gif, webp.'
-            )
         if value.size > MAX_IMAGE_BYTES:
             raise serializers.ValidationError('Image exceeds 5 MB limit.')
+        try:
+            from PIL import Image
+            import io
+            img = Image.open(io.BytesIO(value.read()))
+            img.verify()
+            value.seek(0)
+            if img.format.lower() not in {'jpeg', 'png', 'gif', 'webp'}:
+                raise serializers.ValidationError('Unsupported image format. Allowed: jpeg, png, gif, webp.')
+        except serializers.ValidationError:
+            raise
+        except Exception:
+            raise serializers.ValidationError('Invalid image file.')
         return value
 
     def create(self, validated_data):

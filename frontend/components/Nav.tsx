@@ -131,7 +131,7 @@ export default function Nav() {
     return () => document.removeEventListener('mousedown', onOutside);
   }, []);
 
-  function handleLogout() { logout(); window.location.href = '/login'; }
+  async function handleLogout() { await logout(); window.location.href = '/login'; }
 
   const tabs = buildLinks({ isAuthor, isEditor, isAdmin, loggedIn, me, router });
   const currentIdx = activeIdx(tabs, pathname);
