@@ -11,3 +11,4 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # noqa: F405
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
