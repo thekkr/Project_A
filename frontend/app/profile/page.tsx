@@ -54,7 +54,7 @@ export default function ProfilePage() {
   const displayName = [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username;
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-lg mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Profile</h1>
 
       {/* Avatar + identity */}

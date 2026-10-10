@@ -13,7 +13,7 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
   if (!article) return <p className="text-red-500">Article not found.</p>;
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-display, Georgia, serif)', lineHeight: 1.15, textWrap: 'balance' } as React.CSSProperties}>{article.title}</h1>
       <p className="text-sm text-gray-500 mb-6">
         {article.author} · {article.category?.name} · {new Date(article.created_at).toLocaleDateString()}

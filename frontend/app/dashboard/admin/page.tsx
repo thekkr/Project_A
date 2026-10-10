@@ -64,7 +64,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div>
+    <div className="max-w-5xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
       {msg && <p className="mb-4 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">{msg}</p>}
 

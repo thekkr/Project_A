@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Playfair_Display, Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 import Nav from '@/components/Nav';
+import StickyFooter from '@/components/ui/StickyFooter';
 import GoogleProvider from '@/components/GoogleProvider';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' });
@@ -31,7 +32,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col" style={{ background: 'var(--background)' }} suppressHydrationWarning>
         <GoogleProvider>
           <Nav />
-          <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">{children}</main>
+          <main className="flex-1 min-w-0">{children}</main>
+          <StickyFooter />
         </GoogleProvider>
       </body>
     </html>

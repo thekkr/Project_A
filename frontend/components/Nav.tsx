@@ -229,7 +229,7 @@ export default function Nav() {
       {/* ══════════ MOBILE BOTTOM TAB BAR ══════════════════ */}
       {loggedIn && me && (
         <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
-          style={{ background: 'var(--nav-bg)', borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--nav-fg)' }}>
+          style={{ background: 'var(--nav-bg)', borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--nav-fg)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           {/* Inner wrapper is relative so FAB can position absolute above bar */}
           <div className="relative">
             <LimelightNav
@@ -255,8 +255,8 @@ export default function Nav() {
         </nav>
       )}
 
-      {/* Bottom spacer */}
-      {loggedIn && me && <div className="h-14 md:hidden" />}
+      {/* Bottom spacer — matches nav height + iOS safe area */}
+      {loggedIn && me && <div className="md:hidden" style={{ height: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))' }} />}
     </>
   );
 }

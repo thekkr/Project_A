@@ -88,7 +88,7 @@ export default function EditorDashboard() {
   const myUsername = me?.username;
 
   return (
-    <div>
+    <div className="max-w-5xl mx-auto px-4 py-8">
       {preview && <ArticlePreviewModal article={preview} onClose={() => setPreview(null)} />}
 
       {/* Publish confirmation modal */}
