@@ -1,3 +1,5 @@
+import os
+
 from .base import *  # noqa: F401, F403
 
 DEBUG = False
@@ -11,4 +13,9 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # noqa: F405
+
+CSRF_TRUSTED_ORIGINS = os.environ.get(  # noqa: F405
+    'CSRF_TRUSTED_ORIGINS',
+    'https://projecta-production-77b2.up.railway.app'
+).split(',')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
