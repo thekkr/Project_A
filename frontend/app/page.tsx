@@ -35,19 +35,33 @@ export default function Home() {
 
       <div className="max-w-5xl mx-auto px-6">
 
-        {/* ── Featured section (hidden when filtering) ── */}
-        {featured.length > 0 && (
-          <section className="pt-10 pb-8">
-            <div className="flex items-center gap-3 mb-5">
-              <span
-                className="text-xs font-semibold tracking-widest uppercase"
-                style={{ color: 'var(--accent)' }}
-              >
-                Featured
-              </span>
-              <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-            </div>
+        {/* ── Featured section ── */}
+        <section className="pt-10 pb-8">
+          <div className="flex items-center gap-3 mb-5">
+            <span
+              className="text-xs font-semibold tracking-widest uppercase"
+              style={{ color: 'var(--accent)' }}
+            >
+              Featured
+            </span>
+            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+          </div>
 
+          {/* Placeholder when no articles yet */}
+          {featured.length === 0 && (
+            <div className="featured-grid">
+              <div className="featured-placeholder-hero">
+                <span className="featured-placeholder-label">Coming Soon</span>
+                <p className="featured-placeholder-hint">Featured stories will appear here once articles are published.</p>
+              </div>
+              <div className="flex flex-col gap-4">
+                <div className="featured-placeholder-side" />
+                <div className="featured-placeholder-side" />
+              </div>
+            </div>
+          )}
+
+          {featured.length > 0 && (
             <div className={featured.length > 1 ? 'featured-grid' : 'grid gap-4'}>
               {/* Hero card */}
               {featured[0] && (
@@ -98,8 +112,8 @@ export default function Home() {
                 </div>
               )}
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         {/* ── Latest + filters ── */}
         <section className="pb-12">
@@ -163,7 +177,7 @@ export default function Home() {
           {!isLoading && articles?.results?.length === 0 && (
             <div className="empty-state">
               <p style={{ color: 'var(--muted)' }}>
-                {isFiltered ? 'No articles match your filter.' : 'No published articles yet.'}
+                {isFiltered ? 'No articles match your filter.' : 'No articles published yet. Check back soon.'}
               </p>
               {isFiltered && (
                 <button
