@@ -15,6 +15,7 @@ from .serializers import (
     ArticleVersionSerializer,
     ArticleWriteSerializer,
     CategorySerializer,
+    InlineImageListSerializer,
     InlineImageSerializer,
 )
 
@@ -136,3 +137,9 @@ class ArticleViewSet(viewsets.ModelViewSet):
             {'id': instance.id, 'url': request.build_absolute_uri(instance.image.url)},
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=False, methods=['get'], url_path='images', permission_classes=[IsAuthenticated, IsAuthorOrEditorRole])
+    def list_images(self, request):
+        images = InlineImage.objects.select_related('uploaded_by').order_by('-created_at')
+        serializer = InlineImageListSerializer(images, many=True, context={'request': request})
+        return Response(serializer.data)

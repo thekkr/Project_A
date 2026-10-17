@@ -192,3 +192,16 @@ class InlineImageSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['uploaded_by'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class InlineImageListSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+    uploaded_by = serializers.StringRelatedField()
+
+    class Meta:
+        model = InlineImage
+        fields = ['id', 'url', 'uploaded_by', 'created_at']
+
+    def get_url(self, obj):
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.image.url)

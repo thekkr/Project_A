@@ -16,6 +16,137 @@ import { useCallback, useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
 import { LanguageToolExtension } from '@/lib/languageTool';
 
+// ── Image Picker Modal ─────────────────────────────────────────
+function ImagePickerModal({ onInsert, onClose }: {
+  onInsert: (url: string) => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<'upload' | 'gallery'>('gallery');
+  const [gallery, setGallery] = useState<{ id: number; url: string; uploaded_by: string; created_at: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get('/articles/images/').then(r => setGallery(r.data)).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setUploadError(null);
+    const form = new FormData();
+    form.append('image', file);
+    try {
+      const { data } = await api.post('/articles/upload-image/', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      onInsert(data.url);
+    } catch (err: any) {
+      setUploadError(err?.response?.data?.image?.[0] || 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function pickFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+    input.onchange = () => { if (input.files?.[0]) handleUpload(input.files[0]); };
+    input.click();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setTab('gallery')}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${tab === 'gallery' ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+            >
+              Gallery
+            </button>
+            <button
+              onClick={() => setTab('upload')}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${tab === 'upload' ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+            >
+              Upload New
+            </button>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5" style={{ minHeight: 320 }}>
+          {tab === 'gallery' && (
+            loading ? (
+              <div className="flex items-center justify-center h-48 text-gray-400 text-sm">Loading…</div>
+            ) : gallery.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 gap-2 text-gray-400 text-sm">
+                <span>No images uploaded yet.</span>
+                <button onClick={() => setTab('upload')} className="text-black underline text-xs">Upload your first image</button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-3 max-h-80 overflow-y-auto">
+                {gallery.map(img => (
+                  <button
+                    key={img.id}
+                    onClick={() => onInsert(img.url)}
+                    className="group relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-black transition-all"
+                    title={`By ${img.uploaded_by} · ${new Date(img.created_at).toLocaleDateString()}`}
+                  >
+                    <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                  </button>
+                ))}
+              </div>
+            )
+          )}
+
+          {tab === 'upload' && (
+            <div className="flex flex-col gap-4">
+              {uploadError && (
+                <div className="text-red-600 text-sm bg-red-50 rounded px-3 py-2">{uploadError}</div>
+              )}
+              <div
+                className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 py-14 transition-colors cursor-pointer ${isDragOver ? 'border-black bg-gray-50' : 'border-gray-300 hover:border-gray-500'}`}
+                onClick={pickFile}
+                onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={e => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                  const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
+                  if (file) handleUpload(file);
+                }}
+              >
+                {uploading ? (
+                  <span className="text-gray-500 text-sm">Uploading…</span>
+                ) : (
+                  <>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                    </svg>
+                    <span className="text-sm text-gray-500">Drag & drop or <span className="underline text-black">browse</span></span>
+                    <span className="text-xs text-gray-400">JPEG, PNG, GIF, WebP · max 5 MB</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const FLOAT_STYLE: Record<string, string> = {
   left: 'float:left;margin-right:1em',
   right: 'float:right;margin-left:1em',
@@ -131,6 +262,7 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
   } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [linkModal, setLinkModal] = useState<{ visible: boolean; url: string }>({ visible: false, url: '' });
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const linkInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -246,18 +378,13 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
       const msg = err?.response?.data?.image?.[0] || err?.response?.data?.detail || 'Image upload failed.';
       setUploadError(msg);
     }
-  }, [editor]);
+  }, [editor]);  // drag-drop on editor area still uses this directly
 
-  const uploadImage = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/jpeg,image/png,image/gif,image/webp';
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (file) doUpload(file);
-    };
-    input.click();
-  }, [doUpload]);
+  const insertImageUrl = useCallback((url: string) => {
+    if (!editor) return;
+    editor.chain().focus().insertFigure({ src: url, align: 'center', width: '100%', caption: '' }).run();
+    setImagePickerOpen(false);
+  }, [editor]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -291,6 +418,10 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
   const ltStyle = ltMatches.filter((m: any) => ['style', 'locale-violation'].includes(m.rule?.issueType)).length;
 
   return (
+    <>
+    {imagePickerOpen && (
+      <ImagePickerModal onInsert={insertImageUrl} onClose={() => setImagePickerOpen(false)} />
+    )}
     <div className="border rounded overflow-hidden bg-white">
       {/* Main toolbar */}
       <div className="flex flex-wrap gap-1 px-2 py-1.5 border-b bg-gray-50 text-sm">
@@ -357,7 +488,7 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
         {isLink && (
           <ToolBtn onClick={removeLink} active={false} title="Remove link">Unlink</ToolBtn>
         )}
-        <ToolBtn onClick={uploadImage} active={false} title="Insert image (or drag & drop)">Img</ToolBtn>
+        <ToolBtn onClick={() => setImagePickerOpen(true)} active={false} title="Insert image">Img</ToolBtn>
         <div className="w-px bg-gray-300 mx-1" />
         <ToolBtn onClick={() => editor.chain().focus().undo().run()} active={false} title="Undo (Ctrl+Z)">↩</ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().redo().run()} active={false} title="Redo (Ctrl+Y)">↪</ToolBtn>
@@ -476,6 +607,7 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
         <div>{wordCount} words · {charCount} characters</div>
       </div>
     </div>
+    </>
   );
 }
 
