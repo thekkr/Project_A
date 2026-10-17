@@ -14,6 +14,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { CharacterCount } from '@tiptap/extension-character-count';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
+import { LanguageToolExtension } from '@/lib/languageTool';
 
 const FLOAT_STYLE: Record<string, string> = {
   left: 'float:left;margin-right:1em',
@@ -151,6 +152,7 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
       TableHeader,
       TableCell,
       CharacterCount,
+      LanguageToolExtension,
     ],
     content: value,
     onUpdate({ editor }) {
@@ -283,6 +285,10 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
   const isLink = editor.isActive('link');
   const wordCount = editor.storage.characterCount?.words() ?? 0;
   const charCount = editor.storage.characterCount?.characters() ?? 0;
+  const ltMatches: any[] = editor.storage.languageTool?.matches ?? [];
+  const ltChecking: boolean = editor.storage.languageTool?.checking ?? false;
+  const ltErrors = ltMatches.filter((m: any) => !['style', 'locale-violation'].includes(m.rule?.issueType)).length;
+  const ltStyle = ltMatches.filter((m: any) => ['style', 'locale-violation'].includes(m.rule?.issueType)).length;
 
   return (
     <div className="border rounded overflow-hidden bg-white">
@@ -454,8 +460,20 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
         <EditorContent editor={editor} />
       </div>
 
-      <div className="px-4 py-1.5 border-t bg-gray-50 text-xs text-gray-400 text-right select-none">
-        {wordCount} words · {charCount} characters
+      <div className="px-4 py-1.5 border-t bg-gray-50 text-xs text-gray-400 flex items-center justify-between select-none">
+        <div className="flex items-center gap-3">
+          {ltChecking && <span className="text-gray-400">Checking…</span>}
+          {!ltChecking && ltErrors > 0 && (
+            <span className="text-red-500 font-medium">{ltErrors} error{ltErrors !== 1 ? 's' : ''}</span>
+          )}
+          {!ltChecking && ltStyle > 0 && (
+            <span className="text-amber-500">{ltStyle} style</span>
+          )}
+          {!ltChecking && ltMatches.length === 0 && wordCount > 5 && (
+            <span className="text-green-600">✓ No issues</span>
+          )}
+        </div>
+        <div>{wordCount} words · {charCount} characters</div>
       </div>
     </div>
   );

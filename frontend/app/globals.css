@@ -33,6 +33,20 @@ h1, h2, h3, h4 {
   font-family: var(--font-display, Georgia, serif);
 }
 
+/* LanguageTool underlines */
+.lt-spelling {
+  text-decoration: underline wavy #ef4444;
+  text-underline-offset: 2px;
+}
+.lt-grammar {
+  text-decoration: underline wavy #3b82f6;
+  text-underline-offset: 2px;
+}
+.lt-style {
+  text-decoration: underline wavy #f59e0b;
+  text-underline-offset: 2px;
+}
+
 /* Article reading body — Source Serif 4 */
 .article-body {
   font-family: var(--font-serif, Georgia, serif);
