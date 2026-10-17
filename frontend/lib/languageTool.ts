@@ -1,6 +1,6 @@
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey, DecorationSet } from '@tiptap/pm/state';
-import { Decoration } from '@tiptap/pm/view';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 const LT_KEY = new PluginKey('languageTool');
 
