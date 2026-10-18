@@ -31,9 +31,11 @@ class ReviewViewSet(viewsets.ViewSet):
 
     def _check_editor_permissions(self, request, article):
         """Return Response error if permission denied, else None."""
-        if not request.user.is_authenticated or not request.user.is_editor:
+        user = request.user
+        is_editor_or_admin = user.is_authenticated and (user.is_editor or user.is_site_admin)
+        if not is_editor_or_admin:
             return Response({'detail': 'Editor role required.'}, status=status.HTTP_403_FORBIDDEN)
-        if article.author == request.user:
+        if article.author == user and not user.is_site_admin:
             return Response(
                 {'detail': 'Cannot review your own article.'},
                 status=status.HTTP_403_FORBIDDEN,
@@ -170,7 +172,7 @@ class ReviewViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='my-decisions')
     def my_decisions(self, request):
         """All review decisions made by the current editor, newest first."""
-        if not request.user.is_authenticated or not request.user.is_editor:
+        if not request.user.is_authenticated or not (request.user.is_editor or request.user.is_site_admin):
             return Response({'detail': 'Editor role required.'}, status=status.HTTP_403_FORBIDDEN)
         qs = (ReviewHistory.objects
               .filter(editor=request.user)
