@@ -412,8 +412,8 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
   const isLink = editor.isActive('link');
   const wordCount = editor.storage.characterCount?.words() ?? 0;
   const charCount = editor.storage.characterCount?.characters() ?? 0;
-  const ltMatches: any[] = editor.storage.languageTool?.matches ?? [];
-  const ltChecking: boolean = editor.storage.languageTool?.checking ?? false;
+  const ltMatches: any[] = (editor.storage as any).languageTool?.matches ?? [];
+  const ltChecking: boolean = (editor.storage as any).languageTool?.checking ?? false;
   const ltErrors = ltMatches.filter((m: any) => !['style', 'locale-violation'].includes(m.rule?.issueType)).length;
   const ltStyle = ltMatches.filter((m: any) => ['style', 'locale-violation'].includes(m.rule?.issueType)).length;
 

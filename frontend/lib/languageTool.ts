@@ -11,12 +11,12 @@ interface LTMatch {
   rule: { issueType: string };
 }
 
-function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
+function debounce(fn: (text: string, view: any) => Promise<void>, ms: number) {
   let timer: ReturnType<typeof setTimeout>;
-  return ((...args: unknown[]) => {
+  return (text: string, view: any) => {
     clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  }) as T;
+    timer = setTimeout(() => fn(text, view), ms);
+  };
 }
 
 // Build char-index → doc-position map, matching textBetween(0, size, '\n')
