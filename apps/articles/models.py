@@ -53,6 +53,8 @@ class Article(models.Model):
         return self.title
 
     def can_edit(self, user) -> bool:
+        if user.is_authenticated and user.is_site_admin:
+            return True
         return user == self.author and self.status in (self.DRAFT, self.NEEDS_REVISION)
 
 
