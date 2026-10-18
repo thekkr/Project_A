@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "pip install -r requirements/prod.txt && python manage.py collectstatic --noinput --settings=config.settings.prod"
 
 [deploy]
-startCommand = "python manage.py migrate --settings=config.settings.prod && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2"
+startCommand = "python manage.py migrate --settings=config.settings.prod && python manage.py bootstrap --settings=config.settings.prod && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2"
 healthcheckPath = "/api/health/"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
