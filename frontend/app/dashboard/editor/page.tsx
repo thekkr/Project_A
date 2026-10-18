@@ -86,6 +86,7 @@ export default function EditorDashboard() {
   }
 
   const myUsername = me?.username;
+  const isAdmin = me?.roles?.some((r: any) => r.name === 'ADMIN');
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -132,7 +133,7 @@ export default function EditorDashboard() {
 
       <div className="space-y-4">
         {articles?.results?.map((a: any) => {
-          const isOwnArticle = myUsername && a.author === myUsername;
+          const isOwnArticle = myUsername && a.author === myUsername && !isAdmin;
           return (
             <div key={a.id} className="bg-white border rounded-lg p-5">
               <div className="flex items-start justify-between mb-3">
