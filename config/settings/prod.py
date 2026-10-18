@@ -19,4 +19,7 @@ CSRF_TRUSTED_ORIGINS = os.environ.get(  # noqa: F405
     'CSRF_TRUSTED_ORIGINS',
     'https://projecta-production-77b2.up.railway.app'
 ).split(',')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    **STORAGES,  # noqa: F405
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
