@@ -1,6 +1,12 @@
 'use client';
 import { useEffect } from 'react';
 
+interface Source {
+  url: string;
+  title: string;
+  publisher?: string;
+}
+
 interface Props {
   article: {
     title: string;
@@ -9,6 +15,8 @@ interface Props {
     category?: { name: string };
     created_at?: string;
     status?: string;
+    sources?: Source[];
+    cover_image?: string;
   };
   onClose: () => void;
 }
@@ -59,10 +67,31 @@ export default function ArticlePreviewModal({ article, onClose }: Props) {
               <span className="ml-auto px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">{article.status}</span>
             )}
           </div>
+          {article.cover_image && (
+            <div className="rounded-lg overflow-hidden mb-6 aspect-video bg-gray-100">
+              <img src={article.cover_image} alt={article.title} className="w-full h-full object-cover" />
+            </div>
+          )}
           <div
             className="prose prose-base max-w-none article-body"
             dangerouslySetInnerHTML={{ __html: article.body || '<p class="text-gray-400">(No content)</p>' }}
           />
+          {article.sources && article.sources.length > 0 && (
+            <div className="mt-8 pt-6 border-t">
+              <p className="text-sm font-semibold text-gray-700 mb-3">Sources</p>
+              <ol className="space-y-1.5">
+                {article.sources.map((s, i) => (
+                  <li key={i} className="flex gap-2 text-sm">
+                    <span className="text-gray-400 shrink-0 w-5 text-right">{i + 1}.</span>
+                    <div>
+                      <a href={s.url} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 hover:underline">{s.title}</a>
+                      {s.publisher && <span className="text-gray-500"> — {s.publisher}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
       </div>
     </div>

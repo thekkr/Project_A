@@ -115,13 +115,13 @@ export default function EditorDashboard() {
   async function openPreview(a: any) {
     const loaded = detail[a.id];
     if (loaded) {
-      setPreview({ ...a, body: loaded.body });
+      setPreview({ ...a, body: loaded.body, sources: loaded.sources, cover_image: loaded.cover_image });
       return;
     }
     try {
       const { data } = await api.get(`/articles/${a.id}/`);
       setDetail(d => ({ ...d, [a.id]: data }));
-      setPreview({ ...a, body: data.body });
+      setPreview({ ...a, body: data.body, sources: data.sources, cover_image: data.cover_image });
     } catch {
       setMsg('Could not load article for preview.');
     }
@@ -302,6 +302,22 @@ export default function EditorDashboard() {
                     className="prose prose-sm max-w-none article-body"
                     dangerouslySetInnerHTML={{ __html: detail[a.id].body }}
                   />
+                  {detail[a.id].sources?.length > 0 && (
+                    <div className="mt-4 pt-3 border-t">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Sources</p>
+                      <ol className="space-y-1">
+                        {detail[a.id].sources.map((s: any, i: number) => (
+                          <li key={i} className="flex gap-2 text-xs">
+                            <span className="text-gray-400 shrink-0">{i + 1}.</span>
+                            <div>
+                              <a href={s.url} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-800 hover:underline">{s.title}</a>
+                              {s.publisher && <span className="text-gray-500"> — {s.publisher}</span>}
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
                 </div>
               )}
 
