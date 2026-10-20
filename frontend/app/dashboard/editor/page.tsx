@@ -165,6 +165,14 @@ export default function EditorDashboard() {
                       {a.reviewer && ` · picked up by ${a.reviewer}`}
                     </span>
                   )}
+                  {/* Admin: show reviewer status but no pickup needed */}
+                  {isAdmin && a.reviewer && (
+                    <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded">Picked up by {a.reviewer}</span>
+                  )}
+                  {isAdmin && !a.reviewer && (
+                    <span className="text-xs text-gray-400 px-2">Not picked up · admin can publish directly</span>
+                  )}
+                  {/* Non-admin editor */}
                   {!isOwnArticle && !isAdmin && a.reviewer && a.reviewer === myUsername && (
                     <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded">Assigned to you</span>
                   )}
@@ -191,7 +199,7 @@ export default function EditorDashboard() {
                 </div>
               )}
 
-              {!isOwnArticle && (
+              {(isAdmin || (!isOwnArticle && a.reviewer === myUsername)) && (
                 <>
                   <textarea
                     className="w-full border rounded px-3 py-2 text-sm h-16 mb-2 text-gray-900 bg-white"
