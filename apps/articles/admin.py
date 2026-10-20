@@ -11,8 +11,8 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'category', 'status', 'created_at')
-    list_filter = ('status', 'category')
+    list_display = ('title', 'author', 'status', 'created_at')
+    list_filter = ('status', 'categories')
     search_fields = ('title', 'author__username')
     readonly_fields = ('created_at', 'updated_at')
 
