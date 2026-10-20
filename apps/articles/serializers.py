@@ -11,6 +11,7 @@ ALLOWED_TAGS = [
     'blockquote', 'pre', 'code',
     'a', 'img', 'figure', 'figcaption',
     'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+    'div', 'iframe',
 ]
 
 
@@ -72,6 +73,13 @@ def _allow_img_attributes(tag, name, value):
     if tag == 'a' and name in ('href', 'title', 'rel'):
         return True
     if tag in ('th', 'td') and name in ('colspan', 'rowspan', 'colwidth'):
+        return True
+    if tag == 'iframe':
+        if name in ('width', 'height', 'frameborder', 'allowfullscreen', 'allow', 'referrerpolicy'):
+            return True
+        if name == 'src':
+            return value.startswith('https://www.youtube-nocookie.com/') or value.startswith('https://www.youtube.com/')
+    if tag == 'div' and name in ('class', 'style', 'data-youtube-video'):
         return True
     return False
 

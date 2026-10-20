@@ -12,6 +12,7 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { CharacterCount } from '@tiptap/extension-character-count';
+import Youtube from '@tiptap/extension-youtube';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
 import { LanguageToolExtension } from '@/lib/languageTool';
@@ -266,6 +267,8 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [linkModal, setLinkModal] = useState<{ visible: boolean; url: string }>({ visible: false, url: '' });
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [ytModalOpen, setYtModalOpen] = useState(false);
+  const [ytUrl, setYtUrl] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const linkInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -287,6 +290,7 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
       TableHeader,
       TableCell,
       CharacterCount,
+      Youtube.configure({ width: '100%', height: 480, nocookie: true }),
       LanguageToolExtension,
     ],
     content: value,
@@ -425,6 +429,38 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
     {imagePickerOpen && (
       <ImagePickerModal onInsert={insertImageUrl} onClose={() => setImagePickerOpen(false)} />
     )}
+    {ytModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setYtModalOpen(false)}>
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-5" onClick={e => e.stopPropagation()}>
+          <p className="font-medium mb-3">Embed YouTube Video</p>
+          <input
+            type="url"
+            className="w-full border rounded px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-black"
+            placeholder="https://www.youtube.com/watch?v=..."
+            value={ytUrl}
+            onChange={e => setYtUrl(e.target.value)}
+            autoFocus
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (ytUrl.trim()) { editor.commands.setYoutubeVideo({ src: ytUrl.trim() }); setYtModalOpen(false); }
+              }
+              if (e.key === 'Escape') setYtModalOpen(false);
+            }}
+          />
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={() => setYtModalOpen(false)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">Cancel</button>
+            <button
+              type="button"
+              onClick={() => { if (ytUrl.trim()) { editor.commands.setYoutubeVideo({ src: ytUrl.trim() }); setYtModalOpen(false); } }}
+              className="px-3 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800"
+            >
+              Embed
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="border rounded overflow-hidden bg-white">
       {/* Main toolbar */}
       <div className="flex flex-wrap gap-1 px-2 py-1.5 border-b bg-gray-50 text-sm">
@@ -492,6 +528,7 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
           <ToolBtn onClick={removeLink} active={false} title="Remove link">Unlink</ToolBtn>
         )}
         <ToolBtn onClick={() => setImagePickerOpen(true)} active={false} title="Insert image">Img</ToolBtn>
+        <ToolBtn onClick={() => { setYtUrl(''); setYtModalOpen(true); }} active={false} title="Embed YouTube video">YT</ToolBtn>
         <div className="w-px bg-gray-300 mx-1" />
         <ToolBtn onClick={() => editor.chain().focus().undo().run()} active={false} title="Undo (Ctrl+Z)">↩</ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().redo().run()} active={false} title="Redo (Ctrl+Y)">↪</ToolBtn>
