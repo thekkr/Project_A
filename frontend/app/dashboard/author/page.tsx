@@ -4,6 +4,7 @@ import useSWR, { mutate } from 'swr';
 import api from '@/lib/api';
 import RichTextEditor from '@/components/RichTextEditor';
 import ArticlePreviewModal from '@/components/ArticlePreviewModal';
+import SourcesEditor, { Source } from '@/components/SourcesEditor';
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
 
@@ -21,12 +22,12 @@ export default function AuthorDashboard() {
   const { data: articles, isLoading } = useSWR(articlesUrl, fetcher, { refreshInterval: 8000 });
   const { data: categories } = useSWR('/categories/', fetcher);
 
-  const [form, setForm] = useState({ title: '', body: '', category: '' });
+  const [form, setForm] = useState<{ title: string; body: string; category: string; sources: Source[] }>({ title: '', body: '', category: '', sources: [] });
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState('');
 
   const [editOpen, setEditOpen] = useState<Record<number, boolean>>({});
-  const [editForm, setEditForm] = useState<Record<number, { title: string; body: string }>>({});
+  const [editForm, setEditForm] = useState<Record<number, { title: string; body: string; sources: Source[] }>>({});
   const [history, setHistory] = useState<Record<number, any[]>>({});
   const [saving, setSaving] = useState<Record<number, boolean>>({});
   const [preview, setPreview] = useState<any | null>(null);
@@ -37,7 +38,7 @@ export default function AuthorDashboard() {
     setMsg('');
     try {
       await api.post('/articles/', form);
-      setForm({ title: '', body: '', category: '' });
+      setForm({ title: '', body: '', category: '', sources: [] });
       setMsg('Article created as Draft.');
       mutate(articlesUrl);
     } catch (err: any) {
@@ -68,10 +69,10 @@ export default function AuthorDashboard() {
         api.get(`/articles/${id}/`),
         history[id] ? Promise.resolve({ data: history[id] }) : api.get(`/articles/${id}/history/`),
       ]);
-      setEditForm(f => ({ ...f, [id]: { title: detailRes.data.title, body: detailRes.data.body ?? '' } }));
+      setEditForm(f => ({ ...f, [id]: { title: detailRes.data.title, body: detailRes.data.body ?? '', sources: detailRes.data.sources ?? [] } }));
       setHistory(h => ({ ...h, [id]: historyRes.data }));
     } catch {
-      setEditForm(f => ({ ...f, [id]: { title: a.title, body: '' } }));
+      setEditForm(f => ({ ...f, [id]: { title: a.title, body: '', sources: [] } }));
       setHistory(h => ({ ...h, [id]: [] }));
     }
     setEditOpen(o => ({ ...o, [id]: true }));
@@ -146,6 +147,10 @@ export default function AuthorDashboard() {
             value={form.body}
             onChange={body => setForm(f => ({ ...f, body }))}
             placeholder="Write your article…"
+          />
+          <SourcesEditor
+            sources={form.sources}
+            onChange={sources => setForm(f => ({ ...f, sources }))}
           />
           <button
             type="submit"
@@ -257,6 +262,10 @@ export default function AuthorDashboard() {
                     <RichTextEditor
                       value={editForm[a.id]?.body ?? ''}
                       onChange={body => setEditForm(f => ({ ...f, [a.id]: { ...f[a.id], body } }))}
+                    />
+                    <SourcesEditor
+                      sources={editForm[a.id]?.sources ?? []}
+                      onChange={sources => setEditForm(f => ({ ...f, [a.id]: { ...f[a.id], sources } }))}
                     />
                     <div className="flex gap-2">
                       <button

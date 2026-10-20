@@ -146,7 +146,7 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'body', 'featured_image',
             'author', 'category', 'status',
             'created_at', 'updated_at',
-            'versions',
+            'versions', 'sources',
         )
         read_only_fields = fields
 
@@ -154,8 +154,22 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
 class ArticleWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
-        fields = ('id', 'title', 'body', 'featured_image', 'category', 'status')
+        fields = ('id', 'title', 'body', 'featured_image', 'category', 'status', 'sources')
         read_only_fields = ('id', 'status')
+
+    def validate_sources(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Sources must be a list.')
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError('Each source must be an object.')
+            if not item.get('url') or not item.get('title'):
+                raise serializers.ValidationError('Each source requires url and title.')
+            if len(item.get('url', '')) > 2000:
+                raise serializers.ValidationError('Source URL too long.')
+            if len(item.get('title', '')) > 500:
+                raise serializers.ValidationError('Source title too long.')
+        return value
 
     def validate_title(self, value):
         if len(value.strip()) < 3:
