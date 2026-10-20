@@ -12,7 +12,7 @@ interface Props {
     title: string;
     body: string;
     author?: string;
-    category?: { name: string };
+    categories?: { id: number; name: string }[];
     created_at?: string;
     status?: string;
     sources?: Source[];
@@ -61,7 +61,7 @@ export default function ArticlePreviewModal({ article, onClose }: Props) {
           <h1 className="text-3xl font-bold text-gray-900 mb-3">{article.title}</h1>
           <div className="flex items-center gap-3 text-xs text-gray-500 mb-8 pb-4 border-b">
             {article.author && <span>by <span className="font-medium text-gray-700">{article.author}</span></span>}
-            {article.category?.name && <span>· {article.category.name}</span>}
+            {article.categories?.length ? <span>· {article.categories.map(c => c.name).join(', ')}</span> : null}
             {article.created_at && <span>· {new Date(article.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>}
             {article.status && (
               <span className="ml-auto px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">{article.status}</span>

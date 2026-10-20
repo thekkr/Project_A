@@ -75,9 +75,9 @@ export default function Home() {
                   }}
                 >
                   <div className="featured-hero-body">
-                    {featured[0].category?.name && (
+                    {featured[0].categories?.length > 0 && (
                       <span className="featured-category-pill">
-                        {featured[0].category.name}
+                        {featured[0].categories[0].name}
                       </span>
                     )}
                     <h2 className="featured-hero-title">
@@ -106,9 +106,9 @@ export default function Home() {
                       }}
                     >
                       <div className="featured-side-body">
-                        {a.category?.name && (
+                        {a.categories?.length > 0 && (
                           <span className="featured-category-pill">
-                            {a.category.name}
+                            {a.categories[0].name}
                           </span>
                         )}
                         <h3 className="featured-side-title">{a.title}</h3>
@@ -205,8 +205,8 @@ export default function Home() {
                 <Link key={a.id} href={`/articles/${a.id}`} className="article-card group">
                   <div className="article-card-accent" />
                   <div className="article-card-body">
-                    {a.category?.name && (
-                      <span className="article-card-category">{a.category.name}</span>
+                    {a.categories?.length > 0 && (
+                      <span className="article-card-category">{a.categories.map((c: any) => c.name).join(', ')}</span>
                     )}
                     <h3 className="article-card-title">{a.title}</h3>
                     <p className="article-card-meta">

@@ -22,12 +22,12 @@ export default function AuthorDashboard() {
   const { data: articles, isLoading } = useSWR(articlesUrl, fetcher, { refreshInterval: 8000 });
   const { data: categories } = useSWR('/categories/', fetcher);
 
-  const [form, setForm] = useState<{ title: string; body: string; category: string; sources: Source[] }>({ title: '', body: '', category: '', sources: [] });
+  const [form, setForm] = useState<{ title: string; body: string; categories: string[]; sources: Source[] }>({ title: '', body: '', categories: [], sources: [] });
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState('');
 
   const [editOpen, setEditOpen] = useState<Record<number, boolean>>({});
-  const [editForm, setEditForm] = useState<Record<number, { title: string; body: string; sources: Source[] }>>({});
+  const [editForm, setEditForm] = useState<Record<number, { title: string; body: string; categories: string[]; sources: Source[] }>>({});
   const [history, setHistory] = useState<Record<number, any[]>>({});
   const [saving, setSaving] = useState<Record<number, boolean>>({});
   const [preview, setPreview] = useState<any | null>(null);
@@ -89,7 +89,7 @@ export default function AuthorDashboard() {
     setMsg('');
     try {
       await api.post('/articles/', form);
-      setForm({ title: '', body: '', category: '', sources: [] });
+      setForm({ title: '', body: '', categories: [], sources: [] });
       setMsg('Article created as Draft.');
       mutate(articlesUrl);
     } catch (err: any) {
@@ -120,10 +120,15 @@ export default function AuthorDashboard() {
         api.get(`/articles/${id}/`),
         history[id] ? Promise.resolve({ data: history[id] }) : api.get(`/articles/${id}/history/`),
       ]);
-      setEditForm(f => ({ ...f, [id]: { title: detailRes.data.title, body: detailRes.data.body ?? '', sources: detailRes.data.sources ?? [] } }));
+      setEditForm(f => ({ ...f, [id]: {
+        title: detailRes.data.title,
+        body: detailRes.data.body ?? '',
+        categories: (detailRes.data.categories ?? []).map((c: any) => String(c.id)),
+        sources: detailRes.data.sources ?? [],
+      } }));
       setHistory(h => ({ ...h, [id]: historyRes.data }));
     } catch {
-      setEditForm(f => ({ ...f, [id]: { title: a.title, body: '', sources: [] } }));
+      setEditForm(f => ({ ...f, [id]: { title: a.title, body: '', categories: [], sources: [] } }));
       setHistory(h => ({ ...h, [id]: [] }));
     }
     setEditOpen(o => ({ ...o, [id]: true }));
@@ -254,17 +259,26 @@ export default function AuthorDashboard() {
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
             required
           />
-          <select
-            className="w-full border rounded px-3 py-2 text-sm text-gray-900 bg-white"
-            value={form.category}
-            onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-            required
-          >
-            <option value="">Select category</option>
-            {categories?.results?.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <div className="border rounded px-3 py-2 bg-white">
+            <p className="text-xs text-gray-500 mb-2">Categories <span className="text-red-400">*</span></p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {categories?.results?.map((c: any) => (
+                <label key={c.id} className="flex items-center gap-1.5 text-sm text-gray-800 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    value={c.id}
+                    checked={form.categories.includes(String(c.id))}
+                    onChange={e => {
+                      const id = String(c.id);
+                      setForm(f => ({ ...f, categories: e.target.checked ? [...f.categories, id] : f.categories.filter(x => x !== id) }));
+                    }}
+                    className="accent-black"
+                  />
+                  {c.name}
+                </label>
+              ))}
+            </div>
+          </div>
           <RichTextEditor
             value={form.body}
             onChange={body => setForm(f => ({ ...f, body }))}
@@ -293,7 +307,7 @@ export default function AuthorDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">{a.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{a.category?.name} · {new Date(a.created_at).toLocaleDateString()}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{a.categories?.map((c: any) => c.name).join(', ')} · {new Date(a.created_at).toLocaleDateString()}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[a.status]}`}>{a.status}</span>
@@ -389,6 +403,34 @@ export default function AuthorDashboard() {
                       onChange={e => setEditForm(f => ({ ...f, [a.id]: { ...f[a.id], title: e.target.value } }))}
                       placeholder="Title"
                     />
+                    <div className="border rounded px-3 py-2 bg-white">
+                      <p className="text-xs text-gray-500 mb-2">Categories</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                        {categories?.results?.map((c: any) => (
+                          <label key={c.id} className="flex items-center gap-1.5 text-sm text-gray-800 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              value={c.id}
+                              checked={(editForm[a.id]?.categories ?? []).includes(String(c.id))}
+                              onChange={e => {
+                                const cid = String(c.id);
+                                setEditForm(f => ({
+                                  ...f,
+                                  [a.id]: {
+                                    ...f[a.id],
+                                    categories: e.target.checked
+                                      ? [...(f[a.id]?.categories ?? []), cid]
+                                      : (f[a.id]?.categories ?? []).filter(x => x !== cid),
+                                  },
+                                }));
+                              }}
+                              className="accent-black"
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                     <RichTextEditor
                       value={editForm[a.id]?.body ?? ''}
                       onChange={body => setEditForm(f => ({ ...f, [a.id]: { ...f[a.id], body } }))}

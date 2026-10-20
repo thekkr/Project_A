@@ -36,7 +36,7 @@ class Article(models.Model):
     title = models.CharField(max_length=300)
     body = models.TextField()
     featured_image = models.ImageField(upload_to='featured/', blank=True)
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='articles')
+    categories = models.ManyToManyField(Category, related_name='articles', blank=True)
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

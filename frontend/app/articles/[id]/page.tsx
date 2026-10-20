@@ -23,7 +23,7 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
 
       <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-display, Georgia, serif)', lineHeight: 1.15, textWrap: 'balance' } as React.CSSProperties}>{article.title}</h1>
       <p className="text-sm text-gray-500 mb-6">
-        {article.author} · {article.category?.name} · {new Date(article.created_at).toLocaleDateString()}
+        {article.author} · {article.categories?.map((c: any) => c.name).join(', ')} · {new Date(article.created_at).toLocaleDateString()}
         <span className="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">{article.status}</span>
       </p>
 

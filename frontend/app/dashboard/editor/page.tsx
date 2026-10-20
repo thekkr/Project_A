@@ -246,7 +246,7 @@ export default function EditorDashboard() {
                 <div>
                   <p className="font-semibold">{a.title}</p>
                   <p className="text-xs text-gray-500">
-                    by {a.author} · {a.category?.name}
+                    by {a.author} · {a.categories?.map((c: any) => c.name).join(', ')}
                     {isOwnArticle && (
                       <span className="ml-2 text-amber-600 font-medium">(your article)</span>
                     )}

@@ -116,13 +116,13 @@ class ArticleVersionSerializer(serializers.ModelSerializer):
 
 class ArticleListSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
-    category = CategorySerializer(read_only=True)
+    categories = CategorySerializer(many=True, read_only=True)
     reviewer = serializers.SerializerMethodField()
     revision_round = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
-        fields = ('id', 'title', 'author', 'category', 'status', 'featured_image', 'cover_image', 'created_at', 'reviewer', 'revision_round')
+        fields = ('id', 'title', 'author', 'categories', 'status', 'featured_image', 'cover_image', 'created_at', 'reviewer', 'revision_round')
         read_only_fields = fields
 
     def get_reviewer(self, obj):
@@ -137,14 +137,14 @@ class ArticleListSerializer(serializers.ModelSerializer):
 
 class ArticleDetailSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
-    category = CategorySerializer(read_only=True)
+    categories = CategorySerializer(many=True, read_only=True)
     versions = ArticleVersionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Article
         fields = (
             'id', 'title', 'body', 'featured_image', 'cover_image',
-            'author', 'category', 'status',
+            'author', 'categories', 'status',
             'created_at', 'updated_at',
             'versions', 'sources',
         )
@@ -152,9 +152,13 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
 
 
 class ArticleWriteSerializer(serializers.ModelSerializer):
+    categories = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Category.objects.all(), required=False
+    )
+
     class Meta:
         model = Article
-        fields = ('id', 'title', 'body', 'featured_image', 'cover_image', 'category', 'status', 'sources')
+        fields = ('id', 'title', 'body', 'featured_image', 'cover_image', 'categories', 'status', 'sources')
         read_only_fields = ('id', 'status')
 
     def validate_sources(self, value):
@@ -185,8 +189,18 @@ class ArticleWriteSerializer(serializers.ModelSerializer):
         return clean
 
     def create(self, validated_data):
+        categories = validated_data.pop('categories', [])
         validated_data['author'] = self.context['request'].user
-        return super().create(validated_data)
+        article = super().create(validated_data)
+        article.categories.set(categories)
+        return article
+
+    def update(self, instance, validated_data):
+        categories = validated_data.pop('categories', None)
+        instance = super().update(instance, validated_data)
+        if categories is not None:
+            instance.categories.set(categories)
+        return instance
 
 
 class InlineImageSerializer(serializers.ModelSerializer):
