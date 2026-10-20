@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import api from '@/lib/api';
+import Link from 'next/link';
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
 const ALL_ROLES = ['AUTHOR', 'EDITOR', 'ADMIN'];
@@ -12,6 +13,21 @@ export default function AdminDashboard() {
   const [msg, setMsg] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [addingCat, setAddingCat] = useState(false);
+  const [articleStatus, setArticleStatus] = useState('');
+  const [articlePage, setArticlePage] = useState(1);
+  const articlesKey = `/articles/?page=${articlePage}${articleStatus ? `&status=${articleStatus}` : ''}`;
+  const { data: articles, isLoading: articlesLoading } = useSWR(articlesKey, fetcher);
+
+  async function handleDeleteArticle(id: number, title: string) {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/articles/${id}/`);
+      setMsg(`Article "${title}" deleted.`);
+      mutate(articlesKey);
+    } catch (err: any) {
+      setMsg(err.response?.data?.detail || 'Error deleting article.');
+    }
+  }
 
   async function toggleRole(userId: number, currentRoles: string[], role: string) {
     const has = currentRoles.includes(role);
@@ -102,6 +118,56 @@ export default function AdminDashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Articles */}
+      <h2 className="font-semibold text-lg mb-3">Articles</h2>
+      <div className="mb-3 flex gap-2 flex-wrap">
+        {['', 'DRAFT', 'IN_REVIEW', 'NEEDS_REVISION', 'PUBLISHED'].map(s => (
+          <button
+            key={s}
+            onClick={() => { setArticleStatus(s); setArticlePage(1); }}
+            className={`text-xs px-3 py-1 rounded border font-medium transition-colors ${articleStatus === s ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-300 hover:border-black'}`}
+          >
+            {s || 'All'}
+          </button>
+        ))}
+      </div>
+      <div className="space-y-2 mb-4">
+        {articlesLoading && <p className="text-sm text-gray-500">Loading…</p>}
+        {articles?.results?.length === 0 && <p className="text-sm text-gray-500">No articles.</p>}
+        {articles?.results?.map((a: any) => (
+          <div key={a.id} className="bg-white border rounded-lg p-4 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{a.title}</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                by {a.author} · {a.categories?.map((c: any) => c.name).join(', ')}
+                <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${
+                  a.status === 'PUBLISHED' ? 'bg-green-100 text-green-700' :
+                  a.status === 'IN_REVIEW' ? 'bg-blue-100 text-blue-700' :
+                  a.status === 'NEEDS_REVISION' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-gray-100 text-gray-600'
+                }`}>{a.status}</span>
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Link href={`/articles/${a.id}`} className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200">View</Link>
+              <button
+                onClick={() => handleDeleteArticle(a.id, a.title)}
+                className="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+        {(articles?.previous || articles?.next) && (
+          <div className="flex items-center gap-3 pt-2 text-sm">
+            <button onClick={() => setArticlePage(p => p - 1)} disabled={!articles?.previous} className="px-3 py-1 border rounded disabled:opacity-40 hover:bg-gray-100">Previous</button>
+            <span className="text-gray-500">Page {articlePage}</span>
+            <button onClick={() => setArticlePage(p => p + 1)} disabled={!articles?.next} className="px-3 py-1 border rounded disabled:opacity-40 hover:bg-gray-100">Next</button>
+          </div>
+        )}
       </div>
 
       {/* Categories */}
