@@ -41,8 +41,8 @@ class ArticleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = Article.objects.select_related(
-            'author', 'category', 'review_assignment__reviewer'
-        )
+            'author', 'review_assignment__reviewer'
+        ).prefetch_related('categories')
         if not user.is_authenticated:
             return qs.filter(status=Article.PUBLISHED)
         if user.is_editor or user.is_staff:
