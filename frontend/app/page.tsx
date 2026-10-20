@@ -68,7 +68,11 @@ export default function Home() {
                 <Link
                   href={`/articles/${featured[0].id}`}
                   className="featured-hero-card group"
-                  style={{ background: GRADIENTS[0] }}
+                  style={{
+                    background: featured[0].cover_image
+                      ? `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.25) 100%), url(${featured[0].cover_image}) center/cover no-repeat`
+                      : GRADIENTS[0],
+                  }}
                 >
                   <div className="featured-hero-body">
                     {featured[0].category?.name && (
@@ -94,7 +98,12 @@ export default function Home() {
                       key={a.id}
                       href={`/articles/${a.id}`}
                       className="featured-side-card group"
-                      style={{ background: GRADIENTS[i + 1], flex: 1 }}
+                      style={{
+                        background: a.cover_image
+                          ? `linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.25) 100%), url(${a.cover_image}) center/cover no-repeat`
+                          : GRADIENTS[i + 1],
+                        flex: 1,
+                      }}
                     >
                       <div className="featured-side-body">
                         {a.category?.name && (
