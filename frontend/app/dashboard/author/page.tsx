@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import api from '@/lib/api';
 import RichTextEditor from '@/components/RichTextEditor';
@@ -31,6 +31,57 @@ export default function AuthorDashboard() {
   const [history, setHistory] = useState<Record<number, any[]>>({});
   const [saving, setSaving] = useState<Record<number, boolean>>({});
   const [preview, setPreview] = useState<any | null>(null);
+
+  // Cover image picker modal
+  const [coverModal, setCoverModal] = useState<{ id: number; current?: string } | null>(null);
+  const [coverTab, setCoverTab] = useState<'gallery' | 'upload'>('gallery');
+  const [coverGallery, setCoverGallery] = useState<{ id: number; url: string }[]>([]);
+  const [coverGalleryLoading, setCoverGalleryLoading] = useState(false);
+  const [selectedCover, setSelectedCover] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverUploadError, setCoverUploadError] = useState('');
+  const [coverSaving, setCoverSaving] = useState(false);
+  const coverFileRef = useRef<HTMLInputElement>(null);
+
+  function openCoverModal(a: any) {
+    setSelectedCover(a.cover_image || null);
+    setCoverTab('gallery');
+    setCoverUploadError('');
+    setCoverModal({ id: a.id, current: a.cover_image });
+    setCoverGalleryLoading(true);
+    api.get('/articles/images/').then(r => setCoverGallery(r.data)).catch(() => setCoverGallery([])).finally(() => setCoverGalleryLoading(false));
+  }
+
+  async function uploadCoverImage(file: File): Promise<string | null> {
+    const form = new FormData();
+    form.append('image', file);
+    setCoverUploading(true);
+    setCoverUploadError('');
+    try {
+      const { data } = await api.post('/articles/upload-image/', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      return data.url as string;
+    } catch (err: any) {
+      setCoverUploadError(err?.response?.data?.image?.[0] || 'Upload failed.');
+      return null;
+    } finally {
+      setCoverUploading(false);
+    }
+  }
+
+  async function saveCover() {
+    if (!coverModal) return;
+    setCoverSaving(true);
+    try {
+      await api.patch(`/articles/${coverModal.id}/cover-image/`, { cover_image: selectedCover ?? '' });
+      setMsg('Cover image updated.');
+      setCoverModal(null);
+      mutate(articlesUrl);
+    } catch (err: any) {
+      setMsg(err.response?.data?.detail || 'Error saving cover.');
+    } finally {
+      setCoverSaving(false);
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -120,6 +171,77 @@ export default function AuthorDashboard() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       {preview && <ArticlePreviewModal article={preview} onClose={() => setPreview(null)} />}
+
+      {/* Cover image picker modal */}
+      {coverModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Cover image</h3>
+              <button type="button" onClick={() => setCoverModal(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {selectedCover && (
+                <div className="relative rounded-lg overflow-hidden border aspect-video bg-gray-100">
+                  <img src={selectedCover} alt="Cover" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => setSelectedCover(null)} className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-black">×</button>
+                </div>
+              )}
+
+              <div className="flex gap-1 border-b">
+                <button type="button" onClick={() => setCoverTab('gallery')} className={`px-3 py-1.5 text-sm font-medium ${coverTab === 'gallery' ? 'border-b-2 border-black' : 'text-gray-500 hover:text-gray-800'}`}>Gallery</button>
+                <button type="button" onClick={() => setCoverTab('upload')} className={`px-3 py-1.5 text-sm font-medium ${coverTab === 'upload' ? 'border-b-2 border-black' : 'text-gray-500 hover:text-gray-800'}`}>Upload New</button>
+              </div>
+
+              {coverTab === 'gallery' && (
+                coverGalleryLoading ? (
+                  <p className="text-sm text-gray-400">Loading…</p>
+                ) : coverGallery.length === 0 ? (
+                  <p className="text-sm text-gray-400">No images yet. Upload one.</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 max-h-52 overflow-y-auto">
+                    {coverGallery.map(img => (
+                      <button key={img.id} type="button" onClick={() => setSelectedCover(img.url)}
+                        className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${selectedCover === img.url ? 'border-black' : 'border-transparent hover:border-gray-300'}`}>
+                        <img src={img.url} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {coverTab === 'upload' && (
+                <div className="space-y-2">
+                  {coverUploadError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{coverUploadError}</p>}
+                  <input ref={coverFileRef} type="file" accept="image/*" className="hidden"
+                    onChange={async e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const url = await uploadCoverImage(file);
+                      if (url) { setSelectedCover(url); setCoverGallery(g => [{ id: Date.now(), url }, ...g]); setCoverTab('gallery'); }
+                      e.target.value = '';
+                    }}
+                  />
+                  <button type="button" onClick={() => coverFileRef.current?.click()} disabled={coverUploading}
+                    className="w-full border-2 border-dashed border-gray-300 rounded-lg py-8 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700 disabled:opacity-50">
+                    {coverUploading ? 'Uploading…' : 'Click to choose image'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 border-t flex gap-2 justify-end">
+              <button type="button" onClick={() => setCoverModal(null)} className="px-4 py-2 text-sm border rounded hover:bg-gray-50">Cancel</button>
+              <button type="button" onClick={saveCover} disabled={coverSaving}
+                className="px-4 py-2 text-sm bg-black text-white rounded hover:bg-gray-800 disabled:opacity-50">
+                {coverSaving ? 'Saving…' : 'Save cover'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h1 className="text-2xl font-bold mb-6">Author Dashboard</h1>
 
       <div className="bg-white border rounded-lg p-5 mb-8">
@@ -222,12 +344,20 @@ export default function AuthorDashboard() {
                   </div>
                 )}
                 {a.status === 'PUBLISHED' && (
-                  <button
-                    onClick={() => openEdit(a)}
-                    className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
-                  >
-                    {editOpen[a.id] ? 'Close' : 'View history'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openEdit(a)}
+                      className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                    >
+                      {editOpen[a.id] ? 'Close' : 'View history'}
+                    </button>
+                    <button
+                      onClick={() => openCoverModal(a)}
+                      className="text-xs bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-900"
+                    >
+                      Cover image
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

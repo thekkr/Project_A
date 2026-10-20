@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
-from apps.users.permissions import CanEditArticle, CanUpdateArticle, IsAdminRole, IsAuthorOrEditorRole, IsAuthorRole
+from apps.users.permissions import CanEditArticle, CanUpdateArticle, IsAdminRole, IsAuthorOrEditorRole, IsAuthorRole, _is_admin
 
 from .filters import ArticleFilter
 from .models import Article, ArticleVersion, Category, InlineImage
@@ -127,6 +127,18 @@ class ArticleViewSet(viewsets.ModelViewSet):
             )
         versions = article.versions.all()
         return Response(ArticleVersionSerializer(versions, many=True).data)
+
+    @action(detail=True, methods=['patch'], url_path='cover-image')
+    def set_cover_image(self, request, pk=None):
+        """Update cover_image on any article. Allowed for author (any status) or admin."""
+        article = self.get_object()
+        user = request.user
+        if not (user.is_authenticated and (_is_admin(user) or article.author == user)):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
+        url = request.data.get('cover_image', '')
+        article.cover_image = url
+        article.save(update_fields=['cover_image', 'updated_at'])
+        return Response({'cover_image': article.cover_image})
 
     @action(detail=False, methods=['post'], url_path='upload-image')
     def upload_image(self, request):
