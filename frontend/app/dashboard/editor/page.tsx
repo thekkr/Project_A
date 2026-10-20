@@ -165,13 +165,13 @@ export default function EditorDashboard() {
                       {a.reviewer && ` · picked up by ${a.reviewer}`}
                     </span>
                   )}
-                  {!isOwnArticle && a.reviewer && a.reviewer === myUsername && (
+                  {!isOwnArticle && !isAdmin && a.reviewer && a.reviewer === myUsername && (
                     <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded">Assigned to you</span>
                   )}
-                  {!isOwnArticle && a.reviewer && a.reviewer !== myUsername && (
+                  {!isOwnArticle && !isAdmin && a.reviewer && a.reviewer !== myUsername && (
                     <span className="text-xs text-gray-500 px-2">Assigned to {a.reviewer}</span>
                   )}
-                  {!isOwnArticle && !a.reviewer && (
+                  {!isOwnArticle && !isAdmin && !a.reviewer && (
                     <button
                       onClick={() => pickup(a.id)}
                       className="text-xs bg-gray-800 text-white px-3 py-1 rounded hover:bg-black"

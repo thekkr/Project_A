@@ -104,9 +104,10 @@ class ReviewViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        err = self._check_sticky_reviewer(request, article)
-        if err:
-            return err
+        if not request.user.is_site_admin:
+            err = self._check_sticky_reviewer(request, article)
+            if err:
+                return err
 
         serializer = ReviewDecisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -143,9 +144,10 @@ class ReviewViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        err = self._check_sticky_reviewer(request, article)
-        if err:
-            return err
+        if not request.user.is_site_admin:
+            err = self._check_sticky_reviewer(request, article)
+            if err:
+                return err
 
         serializer = ReviewDecisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
