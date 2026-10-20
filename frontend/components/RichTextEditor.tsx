@@ -68,19 +68,21 @@ function ImagePickerModal({ onInsert, onClose }: {
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <div className="flex gap-1">
             <button
+              type="button"
               onClick={() => setTab('gallery')}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${tab === 'gallery' ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}
             >
               Gallery
             </button>
             <button
+              type="button"
               onClick={() => setTab('upload')}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${tab === 'upload' ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}
             >
               Upload New
             </button>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
         </div>
 
         {/* Body */}
@@ -91,12 +93,13 @@ function ImagePickerModal({ onInsert, onClose }: {
             ) : gallery.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 gap-2 text-gray-400 text-sm">
                 <span>No images uploaded yet.</span>
-                <button onClick={() => setTab('upload')} className="text-black underline text-xs">Upload your first image</button>
+                <button type="button" onClick={() => setTab('upload')} className="text-black underline text-xs">Upload your first image</button>
               </div>
             ) : (
               <div className="grid grid-cols-4 gap-3 max-h-80 overflow-y-auto">
                 {gallery.map(img => (
                   <button
+                    type="button"
                     key={img.id}
                     onClick={() => onInsert(img.url)}
                     className="group relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-black transition-all"
