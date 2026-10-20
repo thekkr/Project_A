@@ -122,7 +122,7 @@ class ArticleListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Article
-        fields = ('id', 'title', 'author', 'category', 'status', 'featured_image', 'created_at', 'reviewer', 'revision_round')
+        fields = ('id', 'title', 'author', 'category', 'status', 'featured_image', 'cover_image', 'created_at', 'reviewer', 'revision_round')
         read_only_fields = fields
 
     def get_reviewer(self, obj):
@@ -143,7 +143,7 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
         fields = (
-            'id', 'title', 'body', 'featured_image',
+            'id', 'title', 'body', 'featured_image', 'cover_image',
             'author', 'category', 'status',
             'created_at', 'updated_at',
             'versions', 'sources',
@@ -154,7 +154,7 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
 class ArticleWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
-        fields = ('id', 'title', 'body', 'featured_image', 'category', 'status', 'sources')
+        fields = ('id', 'title', 'body', 'featured_image', 'cover_image', 'category', 'status', 'sources')
         read_only_fields = ('id', 'status')
 
     def validate_sources(self, value):

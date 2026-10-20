@@ -15,6 +15,12 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
+      {article.cover_image && (
+        <div className="rounded-xl overflow-hidden mb-6 aspect-video bg-gray-100">
+          <img src={article.cover_image} alt={article.title} className="w-full h-full object-cover" />
+        </div>
+      )}
+
       <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-display, Georgia, serif)', lineHeight: 1.15, textWrap: 'balance' } as React.CSSProperties}>{article.title}</h1>
       <p className="text-sm text-gray-500 mb-6">
         {article.author} · {article.category?.name} · {new Date(article.created_at).toLocaleDateString()}

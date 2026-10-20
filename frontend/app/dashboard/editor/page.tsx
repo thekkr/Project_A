@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import api from '@/lib/api';
 import ArticlePreviewModal from '@/components/ArticlePreviewModal';
@@ -21,7 +21,15 @@ export default function EditorDashboard() {
   const [detail, setDetail] = useState<Record<number, any>>({});
   const [msg, setMsg] = useState('');
   const [preview, setPreview] = useState<any | null>(null);
-  const [publishConfirm, setPublishConfirm] = useState<{ id: number; title: string } | null>(null);
+  const [publishModal, setPublishModal] = useState<{ id: number; title: string; currentCover?: string } | null>(null);
+  const [coverTab, setCoverTab] = useState<'gallery' | 'upload'>('gallery');
+  const [gallery, setGallery] = useState<{ id: number; url: string }[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [selectedCover, setSelectedCover] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const coverFileRef = useRef<HTMLInputElement>(null);
 
   async function loadDetail(id: number) {
     if (detail[id]) {
@@ -49,13 +57,47 @@ export default function EditorDashboard() {
     }
   }
 
-  async function publish(id: number) {
+  function openPublishModal(a: any) {
+    setSelectedCover(a.cover_image || null);
+    setCoverTab('gallery');
+    setUploadError('');
+    setPublishModal({ id: a.id, title: a.title, currentCover: a.cover_image });
+    setGalleryLoading(true);
+    api.get('/articles/images/').then(r => setGallery(r.data)).catch(() => setGallery([])).finally(() => setGalleryLoading(false));
+  }
+
+  async function uploadCover(file: File): Promise<string | null> {
+    const form = new FormData();
+    form.append('image', file);
+    setUploading(true);
+    setUploadError('');
     try {
+      const { data } = await api.post('/articles/upload-image/', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      return data.url as string;
+    } catch (err: any) {
+      setUploadError(err?.response?.data?.image?.[0] || 'Upload failed.');
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function confirmPublish() {
+    if (!publishModal) return;
+    const { id } = publishModal;
+    setPublishing(true);
+    try {
+      if (selectedCover) {
+        await api.patch(`/articles/${id}/`, { cover_image: selectedCover });
+      }
       await api.post(`/articles/${id}/publish/`, { comment: comment[id] || '' });
       setMsg('Published.');
+      setPublishModal(null);
       mutate(articlesKey);
     } catch (err: any) {
-      setMsg(err.response?.data?.detail || 'Error.');
+      setMsg(err.response?.data?.detail || 'Error publishing.');
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -92,30 +134,94 @@ export default function EditorDashboard() {
     <div className="max-w-5xl mx-auto px-4 py-8">
       {preview && <ArticlePreviewModal article={preview} onClose={() => setPreview(null)} />}
 
-      {/* Publish confirmation modal */}
-      {publishConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <h3 className="font-semibold text-lg mb-2">Publish article?</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              <span className="font-medium text-gray-900">"{publishConfirm.title}"</span> will be published and visible to the public. This cannot be undone.
-            </p>
-            <div className="flex gap-2 justify-end">
+      {/* Publish modal — cover image picker */}
+      {publishModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b">
+              <h3 className="font-semibold text-lg">Publish article</h3>
+              <p className="text-sm text-gray-500 mt-0.5">"{publishModal.title}"</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <p className="text-sm font-medium text-gray-700">Cover image <span className="text-gray-400 font-normal">(optional)</span></p>
+
+              {selectedCover && (
+                <div className="relative rounded-lg overflow-hidden border aspect-video bg-gray-100">
+                  <img src={selectedCover} alt="Cover" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCover(null)}
+                    className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-black"
+                  >×</button>
+                </div>
+              )}
+
+              <div className="flex gap-1 border-b">
+                <button type="button" onClick={() => setCoverTab('gallery')} className={`px-3 py-1.5 text-sm font-medium ${coverTab === 'gallery' ? 'border-b-2 border-black' : 'text-gray-500 hover:text-gray-800'}`}>Gallery</button>
+                <button type="button" onClick={() => setCoverTab('upload')} className={`px-3 py-1.5 text-sm font-medium ${coverTab === 'upload' ? 'border-b-2 border-black' : 'text-gray-500 hover:text-gray-800'}`}>Upload New</button>
+              </div>
+
+              {coverTab === 'gallery' && (
+                <div>
+                  {galleryLoading ? (
+                    <p className="text-sm text-gray-400">Loading…</p>
+                  ) : gallery.length === 0 ? (
+                    <p className="text-sm text-gray-400">No images in gallery. Upload one.</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2 max-h-52 overflow-y-auto">
+                      {gallery.map(img => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => setSelectedCover(img.url)}
+                          className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${selectedCover === img.url ? 'border-black' : 'border-transparent hover:border-gray-300'}`}
+                        >
+                          <img src={img.url} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {coverTab === 'upload' && (
+                <div className="space-y-2">
+                  {uploadError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{uploadError}</p>}
+                  <input
+                    ref={coverFileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const url = await uploadCover(file);
+                      if (url) { setSelectedCover(url); setCoverTab('gallery'); }
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => coverFileRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full border-2 border-dashed border-gray-300 rounded-lg py-8 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700 disabled:opacity-50"
+                  >
+                    {uploading ? 'Uploading…' : 'Click to choose image'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 border-t flex gap-2 justify-end">
+              <button type="button" onClick={() => setPublishModal(null)} className="px-4 py-2 text-sm border rounded hover:bg-gray-50">Cancel</button>
               <button
-                onClick={() => setPublishConfirm(null)}
-                className="px-4 py-2 text-sm border rounded hover:bg-gray-50"
+                type="button"
+                onClick={confirmPublish}
+                disabled={publishing}
+                className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
               >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  const id = publishConfirm.id;
-                  setPublishConfirm(null);
-                  await publish(id);
-                }}
-                className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Publish
+                {publishing ? 'Publishing…' : 'Publish'}
               </button>
             </div>
           </div>
@@ -210,7 +316,7 @@ export default function EditorDashboard() {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setPublishConfirm({ id: a.id, title: a.title })}
+                      onClick={() => openPublishModal(a)}
                       className="text-xs bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700"
                     >
                       Publish

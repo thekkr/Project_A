@@ -43,6 +43,7 @@ class Article(models.Model):
         related_name='articles',
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DRAFT)
+    cover_image = models.URLField(blank=True)
     sources = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
