@@ -23,7 +23,11 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
 
       <div
         className="prose max-w-none mb-10 article-body"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.body) }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.body, {
+          ADD_TAGS: ['iframe'],
+          ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'referrerpolicy', 'src'],
+          ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|ftp|tel):|[^a-z]|[a-z+\-.]+(?:[^a-z+\-.]|$))/i,
+        }) }}
       />
 
       {article.review_history?.length > 0 && (
