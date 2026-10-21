@@ -34,6 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Nav />
           <main className="flex-1 min-w-0">{children}</main>
           <StickyFooter />
+          {/* Spacer so fixed mobile bottom nav doesn't cover page content */}
+          <div className="md:hidden" style={{ height: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))' }} />
         </GoogleProvider>
       </body>
     </html>

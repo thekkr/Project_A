@@ -255,8 +255,6 @@ export default function Nav() {
         </nav>
       )}
 
-      {/* Bottom spacer — matches nav height + iOS safe area */}
-      {loggedIn && me && <div className="md:hidden" style={{ height: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))' }} />}
     </>
   );
 }
