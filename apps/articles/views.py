@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
@@ -45,13 +46,17 @@ class ArticleViewSet(viewsets.ModelViewSet):
         user = self.request.user
         qs = Article.objects.select_related(
             'author', 'review_assignment__reviewer'
-        ).prefetch_related('categories')
+        ).prefetch_related('categories', 'review_history__editor').annotate(
+            like_count_ann=Count('likes', distinct=True),
+            comment_count_ann=Count(
+                'comments', filter=Q(comments__is_deleted=False), distinct=True
+            ),
+        )
         if not user.is_authenticated:
             return qs.filter(status=Article.PUBLISHED)
         if user.is_editor or user.is_staff:
             return qs.all()
         if user.is_author:
-            from django.db.models import Q
             return qs.filter(Q(author=user) | Q(status=Article.PUBLISHED))
         return qs.filter(status=Article.PUBLISHED)
 

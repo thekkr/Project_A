@@ -137,16 +137,29 @@ class ArticleListSerializer(serializers.ModelSerializer):
         return obj.review_history.filter(decision='NEEDS_REVISION').count()
 
     def get_like_count(self, obj):
+        if hasattr(obj, 'like_count_ann'):
+            return obj.like_count_ann
         return obj.likes.count()
 
     def get_comment_count(self, obj):
+        if hasattr(obj, 'comment_count_ann'):
+            return obj.comment_count_ann
         return obj.comments.filter(is_deleted=False).count()
+
+
+class ReviewHistorySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    editor = serializers.StringRelatedField()
+    decision = serializers.CharField()
+    comment = serializers.CharField()
+    created_at = serializers.DateTimeField()
 
 
 class ArticleDetailSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
     categories = CategorySerializer(many=True, read_only=True)
     versions = ArticleVersionSerializer(many=True, read_only=True)
+    review_history = ReviewHistorySerializer(many=True, read_only=True)
     like_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     comment_count = serializers.SerializerMethodField()
@@ -157,12 +170,14 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'body', 'featured_image', 'cover_image',
             'author', 'categories', 'status',
             'created_at', 'updated_at',
-            'versions', 'sources',
+            'versions', 'sources', 'review_history',
             'like_count', 'is_liked', 'comment_count',
         )
         read_only_fields = fields
 
     def get_like_count(self, obj):
+        if hasattr(obj, 'like_count_ann'):
+            return obj.like_count_ann
         return obj.likes.count()
 
     def get_is_liked(self, obj):
@@ -172,6 +187,8 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
         return False
 
     def get_comment_count(self, obj):
+        if hasattr(obj, 'comment_count_ann'):
+            return obj.comment_count_ann
         return obj.comments.filter(is_deleted=False).count()
 
 

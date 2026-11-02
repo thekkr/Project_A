@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { isLoggedIn } from '@/lib/auth';
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
+const MAX_COMMENT = 2000;
 
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
@@ -33,24 +34,40 @@ type Comment = {
 };
 
 function CommentItem({
-  comment, articleId, loggedIn, onDelete,
+  comment, articleId, currentUser, onDelete,
 }: {
-  comment: Comment; articleId: string; loggedIn: boolean; onDelete: (id: number) => void;
+  comment: Comment; articleId: string; currentUser: string | null; onDelete: (id: number) => Promise<void>;
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyBody, setReplyBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const canDelete = currentUser && !comment.is_deleted && comment.user === currentUser;
 
   async function submitReply() {
     if (!replyBody.trim()) return;
     setSubmitting(true);
+    setError('');
     try {
       await api.post(`/articles/${articleId}/comments/`, { body: replyBody.trim(), parent: comment.id });
       mutate(`/articles/${articleId}/comments/`);
       setReplyBody('');
       setReplyOpen(false);
+    } catch {
+      setError('Failed to post reply. Try again.');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    setDeleting(true);
+    try {
+      await onDelete(id);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -72,14 +89,18 @@ function CommentItem({
               </div>
               <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{comment.body}</p>
               <div className="flex gap-3 mt-1">
-                {loggedIn && (
+                {currentUser && (
                   <button onClick={() => setReplyOpen(o => !o)} className="text-xs text-gray-400 hover:text-gray-700">
                     Reply
                   </button>
                 )}
-                {loggedIn && (
-                  <button onClick={() => onDelete(comment.id)} className="text-xs text-gray-400 hover:text-red-600">
-                    Delete
+                {canDelete && (
+                  <button
+                    onClick={() => handleDelete(comment.id)}
+                    disabled={deleting}
+                    className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
                   </button>
                 )}
               </div>
@@ -91,32 +112,35 @@ function CommentItem({
       {/* Replies */}
       {comment.replies?.length > 0 && (
         <div className="ml-11 space-y-3 border-l-2 pl-4" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-          {comment.replies.map(reply => (
-            <div key={reply.id} className="flex gap-3">
-              <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
-                style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
-                {reply.is_deleted ? '?' : reply.user?.[0]?.toUpperCase() ?? '?'}
+          {comment.replies.map(reply => {
+            const canDeleteReply = currentUser && !reply.is_deleted && reply.user === currentUser;
+            return (
+              <div key={reply.id} className="flex gap-3">
+                <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}>
+                  {reply.is_deleted ? '?' : reply.user?.[0]?.toUpperCase() ?? '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {reply.is_deleted ? (
+                    <p className="text-sm text-gray-400 italic">Comment deleted</p>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-2 mb-0.5">
+                        <span className="text-sm font-semibold">{reply.user}</span>
+                        <span className="text-xs text-gray-400">{new Date(reply.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{reply.body}</p>
+                      {canDeleteReply && (
+                        <button onClick={() => onDelete(reply.id)} className="text-xs text-gray-400 hover:text-red-600 mt-1">
+                          Delete
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                {reply.is_deleted ? (
-                  <p className="text-sm text-gray-400 italic">Comment deleted</p>
-                ) : (
-                  <>
-                    <div className="flex items-baseline gap-2 mb-0.5">
-                      <span className="text-sm font-semibold">{reply.user}</span>
-                      <span className="text-xs text-gray-400">{new Date(reply.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{reply.body}</p>
-                    {loggedIn && (
-                      <button onClick={() => onDelete(reply.id)} className="text-xs text-gray-400 hover:text-red-600 mt-1">
-                        Delete
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -126,22 +150,28 @@ function CommentItem({
           <textarea
             rows={2}
             value={replyBody}
-            onChange={e => setReplyBody(e.target.value)}
+            onChange={e => setReplyBody(e.target.value.slice(0, MAX_COMMENT))}
             placeholder="Write a reply…"
             className="w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-black"
           />
-          <div className="flex gap-2 mt-1">
-            <button
-              onClick={submitReply}
-              disabled={submitting || !replyBody.trim()}
-              className="text-xs px-3 py-1.5 rounded font-medium disabled:opacity-50"
-              style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
-            >
-              {submitting ? 'Posting…' : 'Post reply'}
-            </button>
-            <button onClick={() => { setReplyOpen(false); setReplyBody(''); }} className="text-xs px-3 py-1.5 rounded border hover:bg-gray-50">
-              Cancel
-            </button>
+          <div className="flex items-center justify-between mt-1">
+            <span className={`text-xs ${replyBody.length > MAX_COMMENT * 0.9 ? 'text-red-500' : 'text-gray-400'}`}>
+              {replyBody.length}/{MAX_COMMENT}
+            </span>
+            <div className="flex gap-2">
+              {error && <span className="text-xs text-red-500">{error}</span>}
+              <button
+                onClick={submitReply}
+                disabled={submitting || !replyBody.trim()}
+                className="text-xs px-3 py-1.5 rounded font-medium disabled:opacity-50"
+                style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
+              >
+                {submitting ? 'Posting…' : 'Post reply'}
+              </button>
+              <button onClick={() => { setReplyOpen(false); setReplyBody(''); setError(''); }} className="text-xs px-3 py-1.5 rounded border hover:bg-gray-50">
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -151,14 +181,19 @@ function CommentItem({
 
 export default function ArticleDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const loggedIn = isLoggedIn();
   const { data: article, isLoading, mutate: mutateArticle } = useSWR(`/articles/${id}/`, fetcher);
   const { data: comments, isLoading: commentsLoading } = useSWR(
     article ? `/articles/${id}/comments/` : null, fetcher
   );
-  const loggedIn = isLoggedIn();
+  const { data: me } = useSWR(loggedIn ? '/users/me/' : null, fetcher);
+  const currentUser: string | null = me?.username ?? null;
+
   const [commentBody, setCommentBody] = useState('');
   const [posting, setPosting] = useState(false);
+  const [commentError, setCommentError] = useState('');
   const [liking, setLiking] = useState(false);
+  const [likeError, setLikeError] = useState('');
 
   if (isLoading) return (
     <div className="max-w-3xl mx-auto px-4 py-8 animate-pulse">
@@ -178,9 +213,12 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
   async function handleLike() {
     if (!loggedIn || liking) return;
     setLiking(true);
+    setLikeError('');
     try {
       const { data } = await api.post(`/articles/${id}/like/`);
       mutateArticle({ ...article, is_liked: data.liked, like_count: data.count }, false);
+    } catch {
+      setLikeError('Could not update like. Try again.');
     } finally {
       setLiking(false);
     }
@@ -190,11 +228,14 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
     e.preventDefault();
     if (!commentBody.trim() || posting) return;
     setPosting(true);
+    setCommentError('');
     try {
       await api.post(`/articles/${id}/comments/`, { body: commentBody.trim() });
       mutate(`/articles/${id}/comments/`);
       mutateArticle({ ...article, comment_count: (article.comment_count ?? 0) + 1 }, false);
       setCommentBody('');
+    } catch (err: any) {
+      setCommentError(err.response?.data?.body?.[0] || err.response?.data?.detail || 'Failed to post comment.');
     } finally {
       setPosting(false);
     }
@@ -230,15 +271,18 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
 
       {/* Like + comment counts */}
       <div className="flex items-center gap-4 py-4 border-t border-b mb-8">
-        <button
-          onClick={handleLike}
-          disabled={!loggedIn || liking}
-          title={loggedIn ? (article.is_liked ? 'Unlike' : 'Like') : 'Log in to like'}
-          className={`flex items-center gap-1.5 text-sm font-medium transition-opacity ${!loggedIn ? 'opacity-50 cursor-default' : 'hover:opacity-75'} ${article.is_liked ? 'text-red-500' : 'text-gray-500'}`}
-        >
-          <HeartIcon filled={!!article.is_liked} />
-          <span>{article.like_count ?? 0}</span>
-        </button>
+        <div className="flex flex-col gap-1">
+          <button
+            onClick={handleLike}
+            disabled={!loggedIn || liking}
+            title={loggedIn ? (article.is_liked ? 'Unlike' : 'Like') : 'Log in to like'}
+            className={`flex items-center gap-1.5 text-sm font-medium transition-opacity ${!loggedIn ? 'opacity-50 cursor-default' : 'hover:opacity-75'} ${article.is_liked ? 'text-red-500' : 'text-gray-500'}`}
+          >
+            <HeartIcon filled={!!article.is_liked} />
+            <span>{article.like_count ?? 0}</span>
+          </button>
+          {likeError && <span className="text-xs text-red-500">{likeError}</span>}
+        </div>
         <div className="flex items-center gap-1.5 text-sm text-gray-500">
           <CommentIcon />
           <span>{article.comment_count ?? 0}</span>
@@ -263,8 +307,8 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
       )}
 
       {article.review_history?.length > 0 && (
-        <div className="mb-10">
-          <h2 className="text-lg font-semibold mb-3">Review History</h2>
+        <div className="mb-10 border-t pt-6">
+          <h2 className="text-base font-semibold text-gray-700 mb-3">Review History</h2>
           <div className="space-y-3">
             {article.review_history.map((r: any) => (
               <div key={r.id} className={`border rounded p-3 text-sm ${r.decision === 'PUBLISHED' ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
@@ -286,19 +330,25 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
             <textarea
               rows={3}
               value={commentBody}
-              onChange={e => setCommentBody(e.target.value)}
+              onChange={e => setCommentBody(e.target.value.slice(0, MAX_COMMENT))}
               placeholder="Write a comment…"
               className="w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-black"
             />
-            <div className="flex justify-end mt-2">
-              <button
-                type="submit"
-                disabled={posting || !commentBody.trim()}
-                className="text-sm px-4 py-2 rounded font-medium disabled:opacity-50"
-                style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
-              >
-                {posting ? 'Posting…' : 'Post comment'}
-              </button>
+            <div className="flex items-center justify-between mt-1">
+              <span className={`text-xs ${commentBody.length > MAX_COMMENT * 0.9 ? 'text-red-500' : 'text-gray-400'}`}>
+                {commentBody.length}/{MAX_COMMENT}
+              </span>
+              <div className="flex items-center gap-3">
+                {commentError && <span className="text-xs text-red-500">{commentError}</span>}
+                <button
+                  type="submit"
+                  disabled={posting || !commentBody.trim()}
+                  className="text-sm px-4 py-2 rounded font-medium disabled:opacity-50"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-fg)' }}
+                >
+                  {posting ? 'Posting…' : 'Post comment'}
+                </button>
+              </div>
             </div>
           </form>
         ) : (
@@ -329,7 +379,7 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
                 key={c.id}
                 comment={c}
                 articleId={id}
-                loggedIn={loggedIn}
+                currentUser={currentUser}
                 onDelete={handleDeleteComment}
               />
             ))}
