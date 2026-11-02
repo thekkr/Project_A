@@ -2,7 +2,7 @@ import bleach
 from bleach.css_sanitizer import CSSSanitizer
 from rest_framework import serializers
 
-from .models import Article, ArticleVersion, Category, InlineImage
+from .models import Article, ArticleVersion, Category, Comment, InlineImage, Like
 
 ALLOWED_TAGS = [
     'p', 'br', 'strong', 'em', 'u', 's',
@@ -119,10 +119,12 @@ class ArticleListSerializer(serializers.ModelSerializer):
     categories = CategorySerializer(many=True, read_only=True)
     reviewer = serializers.SerializerMethodField()
     revision_round = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
+    comment_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
-        fields = ('id', 'title', 'author', 'categories', 'status', 'featured_image', 'cover_image', 'created_at', 'reviewer', 'revision_round')
+        fields = ('id', 'title', 'author', 'categories', 'status', 'featured_image', 'cover_image', 'created_at', 'reviewer', 'revision_round', 'like_count', 'comment_count')
         read_only_fields = fields
 
     def get_reviewer(self, obj):
@@ -134,11 +136,20 @@ class ArticleListSerializer(serializers.ModelSerializer):
     def get_revision_round(self, obj):
         return obj.review_history.filter(decision='NEEDS_REVISION').count()
 
+    def get_like_count(self, obj):
+        return obj.likes.count()
+
+    def get_comment_count(self, obj):
+        return obj.comments.filter(is_deleted=False).count()
+
 
 class ArticleDetailSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
     categories = CategorySerializer(many=True, read_only=True)
     versions = ArticleVersionSerializer(many=True, read_only=True)
+    like_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
+    comment_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
@@ -147,8 +158,21 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
             'author', 'categories', 'status',
             'created_at', 'updated_at',
             'versions', 'sources',
+            'like_count', 'is_liked', 'comment_count',
         )
         read_only_fields = fields
+
+    def get_like_count(self, obj):
+        return obj.likes.count()
+
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    def get_comment_count(self, obj):
+        return obj.comments.filter(is_deleted=False).count()
 
 
 class ArticleWriteSerializer(serializers.ModelSerializer):
@@ -228,6 +252,46 @@ class InlineImageSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['uploaded_by'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class ReplySerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
+
+    class Meta:
+        model = Comment
+        fields = ('id', 'user', 'body', 'is_deleted', 'created_at')
+        read_only_fields = fields
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
+    replies = ReplySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ('id', 'user', 'body', 'is_deleted', 'created_at', 'replies')
+        read_only_fields = fields
+
+
+class CommentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ('id', 'body', 'parent')
+
+    def validate_parent(self, value):
+        if value and value.parent is not None:
+            raise serializers.ValidationError('Replies can only be one level deep.')
+        if value and value.is_deleted:
+            raise serializers.ValidationError('Cannot reply to a deleted comment.')
+        return value
+
+    def validate_body(self, value):
+        stripped = value.strip()
+        if not stripped:
+            raise serializers.ValidationError('Comment cannot be empty.')
+        if len(stripped) > 2000:
+            raise serializers.ValidationError('Comment too long (max 2000 characters).')
+        return stripped
 
 
 class InlineImageListSerializer(serializers.ModelSerializer):

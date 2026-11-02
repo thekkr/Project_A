@@ -77,6 +77,33 @@ class ArticleVersion(models.Model):
         return f'Version of "{self.article.title}" at {self.created_at}'
 
 
+class Like(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='likes')
+    article = models.ForeignKey('Article', on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'article')
+
+    def __str__(self):
+        return f'{self.user} likes "{self.article.title}"'
+
+
+class Comment(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments')
+    article = models.ForeignKey('Article', on_delete=models.CASCADE, related_name='comments')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    body = models.TextField(max_length=2000)
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'Comment by {self.user} on "{self.article.title}"'
+
+
 class InlineImage(models.Model):
     image = models.ImageField(upload_to='inline/')
     uploaded_by = models.ForeignKey(

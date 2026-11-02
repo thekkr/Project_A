@@ -1,20 +1,23 @@
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from apps.users.permissions import CanEditArticle, CanUpdateArticle, IsAdminRole, IsAuthorOrEditorRole, IsAuthorRole, _is_admin
 
 from .filters import ArticleFilter
-from .models import Article, ArticleVersion, Category, InlineImage
+from .models import Article, ArticleVersion, Category, Comment, InlineImage, Like
 from .serializers import (
     ArticleDetailSerializer,
     ArticleListSerializer,
     ArticleVersionSerializer,
     ArticleWriteSerializer,
     CategorySerializer,
+    CommentCreateSerializer,
+    CommentSerializer,
     InlineImageListSerializer,
     InlineImageSerializer,
 )
@@ -155,3 +158,53 @@ class ArticleViewSet(viewsets.ModelViewSet):
         images = InlineImage.objects.select_related('uploaded_by').order_by('-created_at')
         serializer = InlineImageListSerializer(images, many=True, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def like(self, request, pk=None):
+        article = self.get_object()
+        like, created = Like.objects.get_or_create(user=request.user, article=article)
+        if not created:
+            like.delete()
+            liked = False
+        else:
+            liked = True
+        return Response({'liked': liked, 'count': article.likes.count()})
+
+    @action(detail=True, methods=['get', 'post'], url_path='comments')
+    def comments(self, request, pk=None):
+        article = self.get_object()
+        if request.method == 'GET':
+            top_level = (
+                article.comments
+                .filter(parent=None)
+                .select_related('user')
+                .prefetch_related('replies__user')
+            )
+            return Response(CommentSerializer(top_level, many=True).data)
+
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = CommentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        parent = serializer.validated_data.get('parent')
+        if parent and parent.article_id != article.pk:
+            return Response({'detail': 'Parent comment belongs to a different article.'}, status=status.HTTP_400_BAD_REQUEST)
+        comment = serializer.save(user=request.user, article=article)
+        full = Comment.objects.select_related('user').prefetch_related('replies__user').get(pk=comment.pk)
+        return Response(CommentSerializer(full).data, status=status.HTTP_201_CREATED)
+
+
+class CommentViewSet(mixins.DestroyModelMixin, viewsets.GenericViewSet):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        is_admin = getattr(user, 'is_site_admin', False) or user.is_staff
+        if instance.user != user and not is_admin:
+            raise PermissionDenied('Cannot delete this comment.')
+        instance.is_deleted = True
+        instance.body = ''
+        instance.save(update_fields=['is_deleted', 'body'])
