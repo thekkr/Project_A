@@ -116,17 +116,14 @@ export default function AuthorDashboard() {
       return;
     }
     try {
-      const [detailRes, historyRes] = await Promise.all([
-        api.get(`/articles/${id}/`),
-        history[id] ? Promise.resolve({ data: history[id] }) : api.get(`/articles/${id}/history/`),
-      ]);
+      const { data } = await api.get(`/articles/${id}/`);
       setEditForm(f => ({ ...f, [id]: {
-        title: detailRes.data.title,
-        body: detailRes.data.body ?? '',
-        categories: (detailRes.data.categories ?? []).map((c: any) => String(c.id)),
-        sources: detailRes.data.sources ?? [],
+        title: data.title,
+        body: data.body ?? '',
+        categories: (data.categories ?? []).map((c: any) => String(c.id)),
+        sources: data.sources ?? [],
       } }));
-      setHistory(h => ({ ...h, [id]: historyRes.data }));
+      setHistory(h => ({ ...h, [id]: data.review_history ?? [] }));
     } catch {
       setEditForm(f => ({ ...f, [id]: { title: a.title, body: '', categories: [], sources: [] } }));
       setHistory(h => ({ ...h, [id]: [] }));
