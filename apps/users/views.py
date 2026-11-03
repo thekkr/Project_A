@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 from .models import Role, User
 from .permissions import IsAdminRole
-from .serializers import ProfileUpdateSerializer, RoleAssignSerializer, UserDetailSerializer, UserListSerializer
+from .serializers import ProfileUpdateSerializer, PublicProfileSerializer, RoleAssignSerializer, UserDetailSerializer, UserListSerializer
 
 
 def _issue_jwt(user):
@@ -28,6 +28,16 @@ def _issue_jwt(user):
 def _derive_username(email: str) -> str:
     base = re.sub(r'[^a-zA-Z0-9_]', '_', email.split('@')[0])[:20] or 'user'
     return f'{base}_{uuid.uuid4().hex[:6]}'
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_profile(request, username):
+    try:
+        user = User.objects.prefetch_related('roles').get(username=username, is_active=True)
+    except User.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    return Response(PublicProfileSerializer(user).data)
 
 
 class AuthRateThrottle(AnonRateThrottle):

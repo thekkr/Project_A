@@ -4,6 +4,7 @@ import useSWR, { mutate } from 'swr';
 import DOMPurify from 'isomorphic-dompurify';
 import api from '@/lib/api';
 import { isLoggedIn } from '@/lib/auth';
+import Link from 'next/link';
 
 const fetcher = (url: string) => api.get(url).then(r => r.data);
 const MAX_COMMENT = 2000;
@@ -256,7 +257,11 @@ export default function ArticleDetail({ params }: { params: Promise<{ id: string
 
       <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-display, Georgia, serif)', lineHeight: 1.15, textWrap: 'balance' } as React.CSSProperties}>{article.title}</h1>
       <p className="text-sm text-gray-500 mb-6">
-        {article.author} · {article.categories?.map((c: any) => c.name).join(', ')} · {new Date(article.created_at).toLocaleDateString()}
+        {article.author_username
+          ? <Link href={`/authors/${article.author_username}`} className="hover:underline font-medium">{article.author}</Link>
+          : article.author
+        }
+        {' '}· {article.categories?.map((c: any) => c.name).join(', ')} · {new Date(article.created_at).toLocaleDateString()}
         <span className="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">{article.status}</span>
       </p>
 

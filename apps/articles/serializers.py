@@ -116,6 +116,7 @@ class ArticleVersionSerializer(serializers.ModelSerializer):
 
 class ArticleListSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
+    author_username = serializers.CharField(source='author.username', read_only=True)
     categories = CategorySerializer(many=True, read_only=True)
     reviewer = serializers.SerializerMethodField()
     revision_round = serializers.SerializerMethodField()
@@ -124,7 +125,7 @@ class ArticleListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Article
-        fields = ('id', 'title', 'author', 'categories', 'status', 'featured_image', 'cover_image', 'created_at', 'reviewer', 'revision_round', 'like_count', 'comment_count')
+        fields = ('id', 'title', 'author', 'author_username', 'categories', 'status', 'featured_image', 'cover_image', 'created_at', 'reviewer', 'revision_round', 'like_count', 'comment_count')
         read_only_fields = fields
 
     def get_reviewer(self, obj):
@@ -157,6 +158,7 @@ class ReviewHistorySerializer(serializers.Serializer):
 
 class ArticleDetailSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField()
+    author_username = serializers.CharField(source='author.username', read_only=True)
     categories = CategorySerializer(many=True, read_only=True)
     versions = ArticleVersionSerializer(many=True, read_only=True)
     review_history = ReviewHistorySerializer(many=True, read_only=True)
@@ -168,7 +170,7 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
         model = Article
         fields = (
             'id', 'title', 'body', 'featured_image', 'cover_image',
-            'author', 'categories', 'status',
+            'author', 'author_username', 'categories', 'status',
             'created_at', 'updated_at',
             'versions', 'sources', 'review_history',
             'like_count', 'is_liked', 'comment_count',

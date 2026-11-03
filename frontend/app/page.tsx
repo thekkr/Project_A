@@ -210,7 +210,11 @@ export default function Home() {
                     )}
                     <h3 className="article-card-title">{a.title}</h3>
                     <p className="article-card-meta">
-                      {a.author} · {new Date(a.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {a.author_username
+                        ? <Link href={`/authors/${a.author_username}`} onClick={e => e.stopPropagation()} className="hover:underline">{a.author}</Link>
+                        : a.author
+                      }
+                      {' '}· {new Date(a.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                     <div className="flex items-center gap-3 mt-2">
                       <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--muted)' }}>

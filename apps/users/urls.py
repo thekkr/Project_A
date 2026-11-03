@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import UserViewSet, google_auth, logout_view
+from .views import UserViewSet, google_auth, logout_view, public_profile
 
 me_view = UserViewSet.as_view({'get': 'me', 'patch': 'me'})
 list_view = UserViewSet.as_view({'get': 'list'})
@@ -20,4 +20,5 @@ urlpatterns = [
     path('<int:pk>/deactivate/', deactivate, name='user-deactivate'),
     path('<int:pk>/activate/', activate, name='user-activate'),
     path('<int:pk>/reassign-reviewer/', reassign_reviewer, name='user-reassign-reviewer'),
+    path('profile/<str:username>/', public_profile, name='user-public-profile'),
 ]

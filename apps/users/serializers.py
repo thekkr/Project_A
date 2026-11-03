@@ -42,6 +42,15 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
+class PublicProfileSerializer(serializers.ModelSerializer):
+    roles = RoleSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'first_name', 'last_name', 'bio', 'avatar_url', 'roles', 'date_joined')
+        read_only_fields = fields
+
+
 class RoleAssignSerializer(serializers.Serializer):
     roles = serializers.ListField(
         child=serializers.ChoiceField(choices=[Role.AUTHOR, Role.EDITOR, Role.ADMIN]),
